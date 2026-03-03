@@ -1,11 +1,11 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
 import type { Document } from './types';
 
 interface ZenWriteDB extends DBSchema {
 	documents: {
 		key: string;
 		value: Document;
-		indexes: { 'updatedAt': number };
+		indexes: { updatedAt: number };
 	};
 }
 
@@ -22,27 +22,47 @@ export function initDB() {
 	}
 }
 
-export async function getDocuments() {
-	if (!dbPromise) initDB();
-	const db = await dbPromise;
-	return db.getAllFromIndex('documents', 'updatedAt');
+export async function getDocuments(): Promise<Document[]> {
+	try {
+		if (!dbPromise) initDB();
+		const db = await dbPromise;
+		return db.getAllFromIndex('documents', 'updatedAt');
+	} catch (err) {
+		console.error('[zenwrite] Failed to load documents:', err);
+		return [];
+	}
 }
 
-export async function getDocument(id: string) {
-	if (!dbPromise) initDB();
-	const db = await dbPromise;
-	return db.get('documents', id);
+export async function getDocument(id: string): Promise<Document | undefined> {
+	try {
+		if (!dbPromise) initDB();
+		const db = await dbPromise;
+		return db.get('documents', id);
+	} catch (err) {
+		console.error('[zenwrite] Failed to get document:', err);
+		return undefined;
+	}
 }
 
-export async function saveDocument(doc: Document) {
-	if (!dbPromise) initDB();
-	const db = await dbPromise;
-	doc.updatedAt = Date.now();
-	await db.put('documents', doc);
+export async function saveDocument(doc: Document): Promise<void> {
+	try {
+		if (!dbPromise) initDB();
+		const db = await dbPromise;
+		doc.updatedAt = Date.now();
+		await db.put('documents', doc);
+	} catch (err) {
+		console.error('[zenwrite] Failed to save document:', err);
+		throw err;
+	}
 }
 
-export async function deleteDocument(id: string) {
-	if (!dbPromise) initDB();
-	const db = await dbPromise;
-	await db.delete('documents', id);
+export async function deleteDocument(id: string): Promise<void> {
+	try {
+		if (!dbPromise) initDB();
+		const db = await dbPromise;
+		await db.delete('documents', id);
+	} catch (err) {
+		console.error('[zenwrite] Failed to delete document:', err);
+		throw err;
+	}
 }

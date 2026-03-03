@@ -1,24 +1,26 @@
-import { getDocuments, saveDocument, deleteDocument } from './db';
-import type { Document } from './types';
 import yaml from 'js-yaml';
+import { deleteDocument, getDocuments, saveDocument } from './db';
+import type { Document } from './types';
 
 export class AppState {
 	documents: Document[] = $state([]);
 	currentDocId: string | null = $state(null);
 	theme: 'light' | 'dark' = $state('light');
-	
+
 	sidebarOpen = $state(false);
 	tocOpen = $state(false);
 	settingsOpen = $state(false);
 	scrollToIndex: number | null = $state(null);
 
+	private saveTimer: ReturnType<typeof setTimeout> | null = null;
+
 	get currentDocument(): Document | null {
-		return this.documents.find(d => d.id === this.currentDocId) || null;
+		return this.documents.find((d) => d.id === this.currentDocId) || null;
 	}
 
 	async init() {
 		if (typeof window === 'undefined') return;
-		
+
 		const savedTheme = localStorage.getItem('theme');
 		if (savedTheme === 'dark' || savedTheme === 'light') {
 			this.theme = savedTheme;
@@ -27,9 +29,13 @@ export class AppState {
 		}
 		this.applyTheme();
 
-		const docs = await getDocuments();
-		this.documents = docs.sort((a, b) => b.updatedAt - a.updatedAt);
-		
+		try {
+			const docs = await getDocuments();
+			this.documents = docs.sort((a, b) => b.updatedAt - a.updatedAt);
+		} catch (err) {
+			console.error('[zenwrite] Failed to load documents on init:', err);
+		}
+
 		if (this.documents.length === 0) {
 			await this.createNew();
 		} else {
@@ -61,35 +67,53 @@ export class AppState {
 			content: '',
 			config: {
 				pubDate: new Date().toISOString().split('T')[0],
-				tags: []
+				tags: [],
 			},
 			createdAt: Date.now(),
-			updatedAt: Date.now()
+			updatedAt: Date.now(),
 		};
-		await saveDocument(doc);
+		try {
+			await saveDocument(doc);
+		} catch (err) {
+			console.error('[zenwrite] Failed to persist new document:', err);
+		}
 		this.documents = [doc, ...this.documents];
 		this.currentDocId = doc.id;
 	}
 
-	async updateCurrent(updates: Partial<Document>) {
-		const index = this.documents.findIndex(d => d.id === this.currentDocId);
-		if (index !== -1) {
-			const updatedDoc = { ...this.documents[index], ...updates, updatedAt: Date.now() };
-			
-			// We must replace the object in the array to trigger deep reactivity if not fully deep,
-			// or simply mutate properties. Svelte 5 `$state` arrays update beautifully, but we'll reassign the object.
-			this.documents[index] = updatedDoc;
-			
-			// Sort so latest is top? Let's just update and let db persist.
-			// Sort could jump positions while editing, so we might sort only on load or explicitly.
-			
-			await saveDocument($state.snapshot(updatedDoc));
-		}
+	updateCurrent(updates: Partial<Document>) {
+		const index = this.documents.findIndex((d) => d.id === this.currentDocId);
+		if (index === -1) return;
+
+		// Update in-memory state immediately for a responsive UI.
+		this.documents[index] = {
+			...this.documents[index],
+			...updates,
+			updatedAt: Date.now(),
+		};
+
+		// Debounce the DB write — collapses rapid keystrokes into one persist call.
+		if (this.saveTimer !== null) clearTimeout(this.saveTimer);
+		this.saveTimer = setTimeout(() => {
+			this.saveTimer = null;
+			const docId = this.currentDocId;
+			const latest = this.documents.find((d) => d.id === docId);
+			if (latest) {
+				saveDocument($state.snapshot(latest)).catch((err) => {
+					console.error('[zenwrite] Debounced save failed:', err);
+				});
+			}
+		}, 400);
 	}
 
 	async deleteDoc(id: string) {
-		await deleteDocument(id);
-		this.documents = this.documents.filter(d => d.id !== id);
+		try {
+			await deleteDocument(id);
+		} catch (err) {
+			console.error('[zenwrite] Failed to delete document:', err);
+			return; // Don't remove from UI if the DB delete failed
+		}
+		this.documents = this.documents.filter((d) => d.id !== id);
 		if (this.currentDocId === id) {
 			if (this.documents.length > 0) {
 				this.currentDocId = this.documents[0].id;
@@ -101,12 +125,12 @@ export class AppState {
 
 	getAstroExport(doc: Document): string {
 		const clonedConfig = structuredClone($state.snapshot(doc.config));
-		
+
 		// Map our internal 'title' into the Astro frontmatter
 		if (!clonedConfig.title) {
 			clonedConfig.title = doc.title;
 		}
-		
+
 		if (clonedConfig.tags && clonedConfig.tags.length === 0) {
 			delete clonedConfig.tags;
 		}
