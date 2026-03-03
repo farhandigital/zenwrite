@@ -6,6 +6,7 @@ import { Download, Menu } from 'lucide-svelte';
 import { untrack } from 'svelte';
 import {
 	customHighlightStyle,
+	handleEnterKeyAtDOMLevel,
 	markdownKeymap,
 	minimalTheme,
 } from '$lib/editor/commands';
@@ -55,6 +56,7 @@ $effect(() => {
 				editorView = new EditorView({
 					doc: cDoc.content,
 					extensions: [
+						handleEnterKeyAtDOMLevel,
 						EditorView.lineWrapping,
 						keymap.of(markdownKeymap),
 						markdown(),

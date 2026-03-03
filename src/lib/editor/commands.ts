@@ -169,70 +169,58 @@ export const insertLink: Command = (view) => {
 	return true;
 };
 
-/**
- * Custom Enter key handler that handles block quote continuation.
- * - Inside a block quote: continues the quote on the next line with "> "
- * - On an empty block quote line ("> " or ">"): exits the block quote
- */
-const insertNewline: Command = (view) => {
-	const { state, dispatch } = view;
-	const changes = state.changeByRange((range) => {
-		// Get the current line
-		const lineStart = state.doc.lineAt(range.from).from;
-		const lineEnd = state.doc.lineAt(range.from).to;
-		const lineText = state.sliceDoc(lineStart, lineEnd);
+export const handleEnterKeyAtDOMLevel = EditorView.domEventHandlers({
+	keydown(event, view) {
+		if (
+			event.code === 'Enter' &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey &&
+			!event.altKey
+		) {
+			const { state } = view;
+			const { from } = state.selection.main;
 
-		console.log('=== ENTER KEY PRESSED ===');
-		console.log('Line text:', JSON.stringify(lineText));
-		console.log('Cursor position:', range.from);
-		console.log('Line start:', lineStart);
-		console.log('Line end:', lineEnd);
+			const lineStart = state.doc.lineAt(from).from;
+			const lineEnd = state.doc.lineAt(from).to;
+			const lineText = state.sliceDoc(lineStart, lineEnd);
+			const blockQuoteMatch = lineText.match(/^(>\s*)/);
 
-		// Check if we're in a block quote line
-		const blockQuoteMatch = lineText.match(/^(>\s*)/);
+			if (blockQuoteMatch) {
+				const quotePrefix = blockQuoteMatch[1];
+				const contentAfterQuote = lineText.slice(quotePrefix.length);
 
-		console.log('Block quote match:', blockQuoteMatch);
+				// If the line is just "> " or ">" with nothing after, exit the block quote
+				if (!contentAfterQuote.trim()) {
+					event.preventDefault();
+					const changes = state.changeByRange((range) => ({
+						changes: { from: range.from, to: range.to, insert: '\n' },
+						range: EditorSelection.cursor(range.from + 1),
+					}));
+					view.dispatch(
+						state.update(changes, { scrollIntoView: true, userEvent: 'input' }),
+					);
+					return true;
+				}
 
-		if (blockQuoteMatch) {
-			const quotePrefix = blockQuoteMatch[1];
-			const contentAfterQuote = lineText.slice(quotePrefix.length);
-
-			console.log('Quote prefix:', JSON.stringify(quotePrefix));
-			console.log('Content after quote:', JSON.stringify(contentAfterQuote));
-			console.log('Trimmed content:', JSON.stringify(contentAfterQuote.trim()));
-
-			// If the line is just "> " or ">" with nothing after, exit the block quote
-			if (!contentAfterQuote.trim()) {
-				console.log('ACTION: EXIT BLOCK QUOTE');
-				// Exit block quote - just insert newline without quote marker
-				return {
-					changes: { from: range.from, to: range.to, insert: '\n' },
-					range: EditorSelection.cursor(range.from + 1),
-				};
+				event.preventDefault();
+				const changes = state.changeByRange((range) => ({
+					changes: { from: range.from, to: range.to, insert: '\n> ' },
+					range: EditorSelection.cursor(range.from + 3),
+				}));
+				view.dispatch(
+					state.update(changes, { scrollIntoView: true, userEvent: 'input' }),
+				);
+				return true;
 			}
 
-			console.log('ACTION: CONTINUE BLOCK QUOTE');
-			// Otherwise, continue the block quote on the next line
-			return {
-				changes: { from: range.from, to: range.to, insert: '\n> ' },
-				range: EditorSelection.cursor(range.from + 3),
-			};
+			return false;
 		}
-
-		console.log('ACTION: NORMAL NEWLINE (not in block quote)');
-		// Not in a block quote, just insert newline
-		return {
-			changes: { from: range.from, to: range.to, insert: '\n' },
-			range: EditorSelection.cursor(range.from + 1),
-		};
-	});
-
-	dispatch(state.update(changes, { scrollIntoView: true, userEvent: 'input' }));
-	return true;
-};
+		return false;
+	},
+});
 
 export const markdownKeymap = [
-	{ key: 'Enter', run: insertNewline },
 	{ key: 'Mod-b', run: toggleInlineMarkup('**') },
 	{ key: 'Mod-i', run: toggleInlineMarkup('*') },
 	{ key: 'Mod-`', run: toggleInlineMarkup('`') },
