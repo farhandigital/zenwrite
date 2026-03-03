@@ -2,10 +2,12 @@
 	import { appState } from '$lib/state.svelte';
 	import { untrack } from 'svelte';
 	import { Download, Menu } from 'lucide-svelte';
-	import { EditorView } from '@codemirror/view';
+	import { EditorView, keymap } from '@codemirror/view';
 	import { markdown } from '@codemirror/lang-markdown';
 	import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 	import { tags as t } from '@lezer/highlight';
+	import { EditorSelection } from '@codemirror/state';
+	import type { Command } from '@codemirror/view';
 
 	let titleInput: HTMLInputElement | undefined = $state();
 	let editorContainer: HTMLDivElement | undefined = $state();
@@ -52,6 +54,112 @@
 		}
 	});
 
+	/**
+	 * Wraps/unwraps the current selection with a symmetric inline markdown marker.
+	 * - No selection → inserts `marker + marker` and places cursor between them.
+	 * - Selection already wrapped → removes the surrounding markers.
+	 * - Otherwise → wraps the selection.
+	 */
+	function toggleInlineMarkup(marker: string): Command {
+		return (view) => {
+			const { state } = view;
+			const changes = state.changeByRange((range) => {
+				const selectedText = state.sliceDoc(range.from, range.to);
+
+				// Toggle OFF: selection includes the markers
+				if (
+					selectedText.startsWith(marker) &&
+					selectedText.endsWith(marker) &&
+					selectedText.length >= marker.length * 2
+				) {
+					const inner = selectedText.slice(marker.length, -marker.length);
+					return {
+						changes: { from: range.from, to: range.to, insert: inner },
+						range: EditorSelection.range(range.from, range.from + inner.length)
+					};
+				}
+
+				// Toggle OFF: markers surround the selection in the document
+				const before = state.sliceDoc(range.from - marker.length, range.from);
+				const after = state.sliceDoc(range.to, range.to + marker.length);
+				if (before === marker && after === marker) {
+					return {
+						changes: [
+							{ from: range.from - marker.length, to: range.from, insert: '' },
+							{ from: range.to, to: range.to + marker.length, insert: '' }
+						],
+						range: EditorSelection.range(
+							range.from - marker.length,
+							range.to - marker.length
+						)
+					};
+				}
+
+				// Insert placeholder and position cursor between markers when nothing is selected
+				if (range.empty) {
+					return {
+						changes: { from: range.from, insert: marker + marker },
+						range: EditorSelection.cursor(range.from + marker.length)
+					};
+				}
+
+				// Wrap selected text
+				return {
+					changes: [
+						{ from: range.from, insert: marker },
+						{ from: range.to, insert: marker }
+					],
+					range: EditorSelection.range(
+						range.from + marker.length,
+						range.to + marker.length
+					)
+				};
+			});
+
+			view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: 'input' }));
+			return true;
+		};
+	}
+
+	/**
+	 * Wraps the selected text as a Markdown link: [text](url)
+	 * - No selection → inserts `[](url)` and places cursor where you type link text
+	 * - Selection → wraps as `[selection](url)` and selects the placeholder 'url'
+	 */
+	const insertLink: Command = (view) => {
+		const { state } = view;
+		const changes = state.changeByRange((range) => {
+			const selectedText = state.sliceDoc(range.from, range.to);
+			if (range.empty) {
+				// Insert []() and place cursor inside []
+				const insert = '[](url)';
+				return {
+					changes: { from: range.from, insert },
+					range: EditorSelection.cursor(range.from + 1)
+				};
+			}
+			// Wrap selected text, select 'url' placeholder so user can immediately type
+			const insert = `[${selectedText}](url)`;
+			const urlStart = range.from + selectedText.length + 3; // after `[selected](`
+			const urlEnd = urlStart + 3; // length of 'url'
+			return {
+				changes: { from: range.from, to: range.to, insert },
+				range: EditorSelection.range(urlStart, urlEnd)
+			};
+		});
+
+		view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: 'input' }));
+		return true;
+	};
+
+	const markdownKeymap = [
+		{ key: 'Mod-b', run: toggleInlineMarkup('**') },
+		{ key: 'Mod-i', run: toggleInlineMarkup('*') },
+		{ key: 'Mod-`', run: toggleInlineMarkup('`') },
+		{ key: 'Mod-Shift-s', run: toggleInlineMarkup('~~') },
+		{ key: 'Mod-k', run: insertLink },
+	];
+
 	function handleTitleChange(e: Event) {
 		const target = e.target as HTMLInputElement;
 		appState.updateCurrent({ title: target.value });
@@ -95,6 +203,7 @@
 							markdown(),
 							syntaxHighlighting(customHighlightStyle, { fallback: true }),
 							minimalTheme,
+							keymap.of(markdownKeymap),
 							EditorView.updateListener.of((update) => {
 								if (update.docChanged) {
 									appState.updateCurrent({ content: update.state.doc.toString() });
