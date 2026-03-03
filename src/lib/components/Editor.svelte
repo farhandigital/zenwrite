@@ -56,11 +56,11 @@ $effect(() => {
 					doc: cDoc.content,
 					extensions: [
 						EditorView.lineWrapping,
+						keymap.of(markdownKeymap),
 						markdown(),
 						syntaxHighlighting(customHighlightStyle, { fallback: true }),
 						minimalTheme,
 						EditorView.theme({}, { dark: appState.theme === 'dark' }),
-						keymap.of(markdownKeymap),
 						EditorView.updateListener.of((update) => {
 							if (update.docChanged) {
 								appState.updateCurrent({

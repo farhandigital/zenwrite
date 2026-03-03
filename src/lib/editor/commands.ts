@@ -182,15 +182,28 @@ const insertNewline: Command = (view) => {
 		const lineEnd = state.doc.lineAt(range.from).to;
 		const lineText = state.sliceDoc(lineStart, lineEnd);
 
+		console.log('=== ENTER KEY PRESSED ===');
+		console.log('Line text:', JSON.stringify(lineText));
+		console.log('Cursor position:', range.from);
+		console.log('Line start:', lineStart);
+		console.log('Line end:', lineEnd);
+
 		// Check if we're in a block quote line
 		const blockQuoteMatch = lineText.match(/^(>\s*)/);
+
+		console.log('Block quote match:', blockQuoteMatch);
 
 		if (blockQuoteMatch) {
 			const quotePrefix = blockQuoteMatch[1];
 			const contentAfterQuote = lineText.slice(quotePrefix.length);
 
+			console.log('Quote prefix:', JSON.stringify(quotePrefix));
+			console.log('Content after quote:', JSON.stringify(contentAfterQuote));
+			console.log('Trimmed content:', JSON.stringify(contentAfterQuote.trim()));
+
 			// If the line is just "> " or ">" with nothing after, exit the block quote
 			if (!contentAfterQuote.trim()) {
+				console.log('ACTION: EXIT BLOCK QUOTE');
 				// Exit block quote - just insert newline without quote marker
 				return {
 					changes: { from: range.from, to: range.to, insert: '\n' },
@@ -198,6 +211,7 @@ const insertNewline: Command = (view) => {
 				};
 			}
 
+			console.log('ACTION: CONTINUE BLOCK QUOTE');
 			// Otherwise, continue the block quote on the next line
 			return {
 				changes: { from: range.from, to: range.to, insert: '\n> ' },
@@ -205,6 +219,7 @@ const insertNewline: Command = (view) => {
 			};
 		}
 
+		console.log('ACTION: NORMAL NEWLINE (not in block quote)');
 		// Not in a block quote, just insert newline
 		return {
 			changes: { from: range.from, to: range.to, insert: '\n' },
