@@ -189,11 +189,8 @@ const insertNewline: Command = (view) => {
 			const quotePrefix = blockQuoteMatch[1];
 			const contentAfterQuote = lineText.slice(quotePrefix.length);
 
-			// If the line is just "> " or ">" with nothing after (cursor at end of empty quote line)
-			if (
-				!contentAfterQuote.trim() &&
-				range.from >= lineStart + quotePrefix.length
-			) {
+			// If the line is just "> " or ">" with nothing after, exit the block quote
+			if (!contentAfterQuote.trim()) {
 				// Exit block quote - just insert newline without quote marker
 				return {
 					changes: { from: range.from, to: range.to, insert: '\n' },
