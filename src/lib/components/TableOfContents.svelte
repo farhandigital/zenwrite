@@ -28,31 +28,7 @@
 	});
 
 	function scrollToHeading(index: number) {
-		const textarea = document.querySelector('.markdown-input') as HTMLTextAreaElement;
-		if (textarea) {
-			// Focus first to ensure the selection scroll takes effect
-			textarea.focus();
-			
-			// Extract the substring before the heading to calculate the line number
-			const textBefore = textarea.value.substring(0, index);
-			const lineNumber = textBefore.split('\n').length;
-			
-			// Approximate line height to scroll manually
-			const computedStyle = window.getComputedStyle(textarea);
-			const lineHeight = parseInt(computedStyle.lineHeight) || 30; // default fallback
-			const paddingTop = parseInt(computedStyle.paddingTop) || 0;
-			
-			// Native scroll to selection doesn't always position well, we can try to scroll window 
-			// because the textarea grows via auto-resize
-			const scrollTarget = textarea.offsetTop + paddingTop + (lineNumber - 1) * lineHeight;
-			
-			window.scrollTo({
-				top: scrollTarget - 100, // offset for the pill menu
-				behavior: 'smooth'
-			});
-			
-			textarea.setSelectionRange(index, index);
-		}
+		appState.scrollToIndex = index;
 		if (window.innerWidth <= 768) {
 			appState.tocOpen = false;
 		}

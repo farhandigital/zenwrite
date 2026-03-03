@@ -1,28 +1,60 @@
 <script lang="ts">
 	import { appState } from '$lib/state.svelte';
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { Download, Menu } from 'lucide-svelte';
+	import { EditorView } from '@codemirror/view';
+	import { markdown } from '@codemirror/lang-markdown';
+	import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+	import { tags as t } from '@lezer/highlight';
 
 	let titleInput: HTMLInputElement | undefined = $state();
-	let contentTextarea: HTMLTextAreaElement | undefined = $state();
+	let editorContainer: HTMLDivElement | undefined = $state();
+	let editorView: EditorView | undefined;
 
-	// Keep textarea height synced with content
-	function autoResize() {
-		if (contentTextarea) {
-			contentTextarea.style.height = 'auto';
-			contentTextarea.style.height = contentTextarea.scrollHeight + 'px';
+	const customHighlightStyle = HighlightStyle.define([
+		{ tag: t.heading, color: "var(--accent)", fontWeight: "bold" },
+		{ tag: t.strong, fontWeight: "bold" },
+		{ tag: t.emphasis, fontStyle: "italic" },
+		{ tag: t.link, color: "var(--accent)", textDecoration: "underline" },
+		{ tag: t.url, color: "var(--text-muted)" },
+		{ tag: t.quote, color: "var(--text-muted)", fontStyle: "italic", borderLeft: "4px solid var(--accent)", paddingLeft: "15px" },
+		{ tag: t.list, color: "var(--text)" },
+		{ tag: t.monospace, backgroundColor: "var(--accent-glow)", borderRadius: "3px", padding: "2px 4px", fontFamily: "monospace", fontSize: "1.1rem" },
+		{ tag: t.strikethrough, textDecoration: "line-through" }
+	]);
+
+	const minimalTheme = EditorView.theme({
+		"&": {
+			color: "var(--text)",
+			backgroundColor: "transparent",
+			height: "100%"
+		},
+		".cm-content": {
+			fontFamily: "var(--font-editor)",
+			fontSize: "1.25rem",
+			lineHeight: "1.8",
+			padding: "0 0 30px 0",
+			whiteSpace: "pre-wrap"
+		},
+		"&.cm-focused": {
+			outline: "none"
+		},
+		".cm-cursor, .cm-dropCursor": { 
+			borderLeftColor: "var(--text)", 
+			borderLeftWidth: "2px" 
+		},
+		".cm-scroller": {
+			overflow: "visible", /* Let parent handle scrolling */
+			fontFamily: "var(--font-editor)",
+		},
+		".cm-line": {
+			padding: "0"
 		}
-	}
+	});
 
 	function handleTitleChange(e: Event) {
 		const target = e.target as HTMLInputElement;
 		appState.updateCurrent({ title: target.value });
-	}
-
-	function handleContentChange(e: Event) {
-		const target = e.target as HTMLTextAreaElement;
-		appState.updateCurrent({ content: target.value });
-		autoResize();
 	}
 
 	function exportMarkdown() {
@@ -44,12 +76,58 @@
 		URL.revokeObjectURL(url);
 	}
 
-	// Trigger resize on mount and doc change
-	// We'll use an effect or reactive statement in svelte 5.
+	let initializedId: string | null = null;
+
 	$effect(() => {
-		if (appState.currentDocument?.content !== undefined) {
-			// small delay to let dom paint before reading scrollHeight
-			setTimeout(autoResize, 0);
+		const cDoc = appState.currentDocument;
+		
+		if (cDoc && editorContainer) {
+			untrack(() => {
+				if (initializedId !== cDoc.id) {
+					if (editorView) {
+						editorView.destroy();
+					}
+					
+					editorView = new EditorView({
+						doc: cDoc.content,
+						extensions: [
+							EditorView.lineWrapping,
+							markdown(),
+							syntaxHighlighting(customHighlightStyle, { fallback: true }),
+							minimalTheme,
+							EditorView.updateListener.of((update) => {
+								if (update.docChanged) {
+									appState.updateCurrent({ content: update.state.doc.toString() });
+								}
+							})
+						],
+						parent: editorContainer
+					});
+					initializedId = cDoc.id;
+				}
+			});
+		} else if (!cDoc && editorView) {
+			untrack(() => {
+				editorView!.destroy();
+				editorView = undefined;
+				initializedId = null;
+			});
+		}
+	});
+
+	$effect(() => {
+		if (appState.scrollToIndex !== null && editorView) {
+			const pos = appState.scrollToIndex;
+			// Untrack to prevent circular dependencies
+			untrack(() => {
+				editorView!.dispatch({
+					selection: { anchor: pos, head: pos },
+					scrollIntoView: true
+				});
+				editorView!.focus();
+				// Immediately clear the state
+				appState.scrollToIndex = null;
+			});
 		}
 	});
 </script>
@@ -77,13 +155,7 @@
 				bind:this={titleInput}
 			/>
 			
-			<textarea 
-				class="markdown-input" 
-				placeholder="Write your thoughts here... Use standard Markdown." 
-				value={appState.currentDocument.content} 
-				oninput={handleContentChange}
-				bind:this={contentTextarea}
-			></textarea>
+			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
 	{:else}
 		<div class="empty-state">
@@ -188,24 +260,23 @@
 		opacity: 0.5;
 	}
 
-	.markdown-input {
-		font-family: var(--font-editor);
-		font-size: 1.25rem;
-		line-height: 1.8;
-		color: var(--text);
-		border: none;
-		outline: none;
-		background: transparent;
-		resize: none;
-		min-height: 60vh;
+	.codemirror-wrapper {
 		width: 100%;
-		overflow: hidden;
-		padding-bottom: 30px;
+		min-height: 60vh;
 	}
 
-	.markdown-input::placeholder {
-		color: var(--text-muted);
-		opacity: 0.5;
+	/* We target the CM elements to ensure clean styling within our dark/light scope */
+	.codemirror-wrapper :global(.cm-editor) {
+		background-color: transparent !important;
+	}
+	
+	.codemirror-wrapper :global(.cm-scroller) {
+		overflow: visible !important; 
+		height: auto !important;
+	}
+
+	.codemirror-wrapper :global(.cm-content) {
+		min-height: 60vh;
 	}
 
 	.empty-state {
@@ -232,7 +303,7 @@
 		.title-input {
 			font-size: 2.2rem;
 		}
-		.markdown-input {
+		.codemirror-wrapper :global(.cm-content) {
 			font-size: 1.1rem;
 		}
 	}

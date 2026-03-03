@@ -10,6 +10,7 @@ export class AppState {
 	sidebarOpen = $state(false);
 	tocOpen = $state(false);
 	settingsOpen = $state(false);
+	scrollToIndex: number | null = $state(null);
 
 	get currentDocument(): Document | null {
 		return this.documents.find(d => d.id === this.currentDocId) || null;
