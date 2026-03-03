@@ -170,15 +170,50 @@ export const insertLink: Command = (view) => {
 };
 
 /**
- * Custom Enter key handler that ensures new lines are always created,
- * even at the end of the document or with no content below.
+ * Custom Enter key handler that handles block quote continuation.
+ * - Inside a block quote: continues the quote on the next line with "> "
+ * - On an empty block quote line ("> " or ">"): exits the block quote
  */
 const insertNewline: Command = (view) => {
 	const { state, dispatch } = view;
-	const changes = state.changeByRange((range) => ({
-		changes: { from: range.from, to: range.to, insert: '\n' },
-		range: EditorSelection.cursor(range.from + 1),
-	}));
+	const changes = state.changeByRange((range) => {
+		// Get the current line
+		const lineStart = state.doc.lineAt(range.from).from;
+		const lineEnd = state.doc.lineAt(range.from).to;
+		const lineText = state.sliceDoc(lineStart, lineEnd);
+
+		// Check if we're in a block quote line
+		const blockQuoteMatch = lineText.match(/^(>\s*)/);
+
+		if (blockQuoteMatch) {
+			const quotePrefix = blockQuoteMatch[1];
+			const contentAfterQuote = lineText.slice(quotePrefix.length);
+
+			// If the line is just "> " or ">" with nothing after (cursor at end of empty quote line)
+			if (
+				!contentAfterQuote.trim() &&
+				range.from >= lineStart + quotePrefix.length
+			) {
+				// Exit block quote - just insert newline without quote marker
+				return {
+					changes: { from: range.from, to: range.to, insert: '\n' },
+					range: EditorSelection.cursor(range.from + 1),
+				};
+			}
+
+			// Otherwise, continue the block quote on the next line
+			return {
+				changes: { from: range.from, to: range.to, insert: '\n> ' },
+				range: EditorSelection.cursor(range.from + 3),
+			};
+		}
+
+		// Not in a block quote, just insert newline
+		return {
+			changes: { from: range.from, to: range.to, insert: '\n' },
+			range: EditorSelection.cursor(range.from + 1),
+		};
+	});
 
 	dispatch(state.update(changes, { scrollIntoView: true, userEvent: 'input' }));
 	return true;
