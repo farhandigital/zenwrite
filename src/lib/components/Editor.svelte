@@ -15,6 +15,7 @@ import { appState } from '$lib/state.svelte';
 let titleInput: HTMLInputElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
 let editorView: EditorView | undefined;
+let autoSelectedDocIds = new Set<string>();
 
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLInputElement;
@@ -104,6 +105,21 @@ $effect(() => {
 			editorView!.focus();
 			// Immediately clear the state
 			appState.scrollToIndex = null;
+		});
+	}
+});
+
+$effect(() => {
+	// Auto-focus and select title only for newly created documents
+	if (
+		appState.currentDocument &&
+		titleInput &&
+		!autoSelectedDocIds.has(appState.currentDocument.id)
+	) {
+		untrack(() => {
+			titleInput!.focus();
+			titleInput!.select();
+			autoSelectedDocIds.add(appState.currentDocument!.id);
 		});
 	}
 });
