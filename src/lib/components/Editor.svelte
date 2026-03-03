@@ -21,6 +21,13 @@ function handleTitleChange(e: Event) {
 	appState.updateCurrent({ title: target.value });
 }
 
+function handleTitleKeydown(e: KeyboardEvent) {
+	if (e.key === 'Enter' && editorView) {
+		e.preventDefault();
+		editorView.focus();
+	}
+}
+
 function exportMarkdown() {
 	const doc = appState.currentDocument;
 	if (!doc) return;
@@ -121,7 +128,8 @@ $effect(() => {
 				type="text" 
 				placeholder="Untitled Document" 
 				value={appState.currentDocument.title} 
-				oninput={handleTitleChange} 
+				oninput={handleTitleChange}
+				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}
 			/>
 			
