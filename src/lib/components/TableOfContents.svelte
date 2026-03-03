@@ -1,37 +1,37 @@
 <script lang="ts">
-	import { appState } from '$lib/state.svelte';
-	import { X } from 'lucide-svelte';
+import { X } from 'lucide-svelte';
+import { appState } from '$lib/state.svelte';
 
-	function close() {
+function close() {
+	appState.tocOpen = false;
+}
+
+interface Heading {
+	level: number;
+	text: string;
+	index: number;
+}
+
+let headings: Heading[] = $derived.by(() => {
+	const content = appState.currentDocument?.content || '';
+	const regex = /^(#{1,6})\s+(.+)/gm;
+	const found: Heading[] = [];
+	for (const match of content.matchAll(regex)) {
+		found.push({
+			level: match[1].length,
+			text: match[2],
+			index: match.index,
+		});
+	}
+	return found;
+});
+
+function scrollToHeading(index: number) {
+	appState.scrollToIndex = index;
+	if (window.innerWidth <= 768) {
 		appState.tocOpen = false;
 	}
-
-	interface Heading {
-		level: number;
-		text: string;
-		index: number;
-	}
-
-	let headings: Heading[] = $derived.by(() => {
-		const content = appState.currentDocument?.content || '';
-		const regex = /^(#{1,6})\s+(.+)/gm;
-		const found: Heading[] = [];
-		for (const match of content.matchAll(regex)) {
-			found.push({
-				level: match[1].length,
-				text: match[2],
-				index: match.index
-			});
-		}
-		return found;
-	});
-
-	function scrollToHeading(index: number) {
-		appState.scrollToIndex = index;
-		if (window.innerWidth <= 768) {
-			appState.tocOpen = false;
-		}
-	}
+}
 </script>
 
 {#if appState.tocOpen}

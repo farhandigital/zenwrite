@@ -1,24 +1,27 @@
 <script lang="ts">
-	import { appState } from '$lib/state.svelte';
-	import { X } from 'lucide-svelte';
+import { X } from 'lucide-svelte';
+import { appState } from '$lib/state.svelte';
 
-	function close() {
-		appState.settingsOpen = false;
-	}
+function close() {
+	appState.settingsOpen = false;
+}
 
-	function handleInput(key: string, e: Event) {
-		const target = e.target as HTMLInputElement;
-		const val = target.value;
-		if (appState.currentDocument) {
-			const config = { ...appState.currentDocument.config };
-			if (key === 'tags') {
-				config.tags = val.split(',').map(t => t.trim()).filter(Boolean);
-			} else {
-				config[key] = val;
-			}
-			appState.updateCurrent({ config });
+function handleInput(key: string, e: Event) {
+	const target = e.target as HTMLInputElement;
+	const val = target.value;
+	if (appState.currentDocument) {
+		const config = { ...appState.currentDocument.config };
+		if (key === 'tags') {
+			config.tags = val
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean);
+		} else {
+			config[key] = val;
 		}
+		appState.updateCurrent({ config });
 	}
+}
 </script>
 
 {#if appState.settingsOpen}

@@ -281,12 +281,22 @@ $effect(() => {
 
 	.editor-content {
 		max-width: 800px;
-		width: 100%;
-		margin: 0 auto;
-		padding: 40px 60px 180px;
+		width: calc(100% - 48px);
+		margin: 48px auto;
+		padding: 48px 60px 180px;
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
+		
+		/* Light glass effect */
+		background: rgba(128, 128, 128, 0.02);
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
+		border: 1px solid var(--border);
+		border-radius: 20px;
+		box-shadow: 
+			0 8px 32px rgba(0, 0, 0, 0.03),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 	}
 
 	.title-input {
@@ -345,7 +355,10 @@ $effect(() => {
 	/* Responsive design limits */
 	@media (max-width: 768px) {
 		.editor-content {
-			padding: 20px 30px 120px;
+			padding: 32px 24px 120px;
+			margin: 24px auto;
+			width: calc(100% - 32px);
+			border-radius: 16px;
 		}
 		.title-input {
 			font-size: 2.2rem;

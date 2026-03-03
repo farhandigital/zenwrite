@@ -1,15 +1,15 @@
 <script lang="ts">
-	import '../app.css';
-	import { onMount } from 'svelte';
-	// We might have an issue importing $lib depending on SvelteKit's configuration.
-	// We'll import relatively or standard lib depending on setup.
-	import { appState } from '$lib/state.svelte';
+import '../app.css';
+import { onMount } from 'svelte';
+// We might have an issue importing $lib depending on SvelteKit's configuration.
+// We'll import relatively or standard lib depending on setup.
+import { appState } from '$lib/state.svelte';
 
-	let { children } = $props();
+let { children } = $props();
 
-	onMount(() => {
-		appState.init();
-	});
+onMount(() => {
+	appState.init();
+});
 </script>
 
 {#if appState.documents.length > 0}

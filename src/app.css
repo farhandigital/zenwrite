@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600;700&display=swap");
 
 :root {
 	--bg: #ffffff;
@@ -9,8 +9,8 @@
 	--accent-glow: rgba(59, 130, 246, 0.2);
 	--surface: #f9fafb;
 	--overlay: rgba(255, 255, 255, 0.8);
-	--font-ui: 'Inter', sans-serif;
-	--font-editor: 'Lora', serif;
+	--font-ui: "Inter", sans-serif;
+	--font-editor: "Lora", serif;
 }
 
 html.dark {
@@ -30,13 +30,19 @@ html.dark {
 	padding: 0;
 }
 
-html, body {
+html,
+body {
 	height: 100%;
 	width: 100%;
 	background-color: var(--bg);
+	/* Subtle dot pattern to make the glass effect visible */
+	background-image: radial-gradient(var(--border) 1px, transparent 1px);
+	background-size: 24px 24px;
 	color: var(--text);
 	font-family: var(--font-ui);
-	transition: background-color 0.4s ease, color 0.4s ease;
+	transition:
+		background-color 0.4s ease,
+		color 0.4s ease;
 	overflow: hidden;
 }
 
@@ -48,7 +54,8 @@ button {
 	font-family: inherit;
 }
 
-input, textarea {
+input,
+textarea {
 	font-family: inherit;
 	color: inherit;
 }
