@@ -1,29 +1,38 @@
 <script lang="ts">
-	import { appState } from '$lib/state.svelte';
-	import { FileText, Plus, Settings, List, Moon, Sun, Download, Trash } from 'lucide-svelte';
+import {
+	FileText,
+	Focus,
+	List,
+	Moon,
+	Plus,
+	Settings,
+	Sun,
+	Trash,
+} from 'lucide-svelte';
+import { appState } from '$lib/state.svelte';
 
-	function handleFileClick(id: string) {
-		appState.currentDocId = id;
-		// On mobile, maybe close sidebar
-	}
+function handleFileClick(id: string) {
+	appState.currentDocId = id;
+	// On mobile, maybe close sidebar
+}
 
-	function createNew() {
-		appState.createNew();
-	}
+function createNew() {
+	appState.createNew();
+}
 
-	function deleteDoc(id: string, event: MouseEvent) {
-		event.stopPropagation();
-		if (confirm('Are you sure you want to delete this document?')) {
-			appState.deleteDoc(id);
-		}
+function deleteDoc(id: string, event: MouseEvent) {
+	event.stopPropagation();
+	if (confirm('Are you sure you want to delete this document?')) {
+		appState.deleteDoc(id);
 	}
+}
 
-	function getTitle(title: string) {
-		return title.trim().length > 0 ? title : 'Untitled Document';
-	}
+function getTitle(title: string) {
+	return title.trim().length > 0 ? title : 'Untitled Document';
+}
 </script>
 
-<aside class="sidebar frosted-glass" class:open={appState.sidebarOpen}>
+<aside class="sidebar frosted-glass" class:open={appState.sidebarOpen} class:zen={appState.zenMode}>
 	<div class="sidebar-header">
 		<h2>ZenWrite</h2>
 		<div class="window-actions">
@@ -72,6 +81,10 @@
 			<Settings size={18} />
 			<span>Astro Settings</span>
 		</button>
+		<button class="menu-item zen-toggle" onclick={() => appState.toggleZenMode()} title="Enter Zen Mode">
+			<Focus size={18} />
+			<span>Zen Mode</span>
+		</button>
 	</div>
 </aside>
 
@@ -85,6 +98,10 @@
 		background: var(--surface);
 		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 		z-index: 40;
+	}
+
+	.sidebar.zen {
+		transform: translateX(-100%);
 	}
 
 	.sidebar-header {
@@ -191,6 +208,15 @@
 	.menu-item:hover {
 		background: var(--border);
 		color: var(--text);
+	}
+
+	.zen-toggle {
+		color: var(--text-muted);
+	}
+
+	.zen-toggle:hover {
+		background: var(--accent-glow);
+		color: var(--accent);
 	}
 
 	.icon-btn {

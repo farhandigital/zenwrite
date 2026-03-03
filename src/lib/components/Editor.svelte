@@ -2,7 +2,7 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { EditorView, keymap } from '@codemirror/view';
-import { Download, Menu } from 'lucide-svelte';
+import { Download, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
 import { untrack } from 'svelte';
 import {
 	customHighlightStyle,
@@ -47,6 +47,12 @@ function exportMarkdown() {
 	a.click();
 	document.body.removeChild(a);
 	URL.revokeObjectURL(url);
+}
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+	if (e.key === 'Escape' && appState.zenMode) {
+		appState.zenMode = false;
+	}
 }
 
 let initializedId: string | null = null;
@@ -125,15 +131,30 @@ $effect(() => {
 });
 </script>
 
+<svelte:window onkeydown={handleGlobalKeydown} />
+
 <div class="editor-container">
 	{#if appState.currentDocument}
-		<div class="top-nav">
+		<div class="top-nav" class:zen={appState.zenMode}>
 			<button class="mobile-menu" onclick={() => appState.sidebarOpen = !appState.sidebarOpen}>
 				<Menu size={24} />
 			</button>
 			<div class="glass-pill-actions">
 				<button class="action-btn" onclick={exportMarkdown} title="Export Astro Markdown">
 					<Download size={16} /> <span>Export to Astro</span>
+				</button>
+				<div class="pill-divider"></div>
+				<button 
+					class="action-btn zen-btn" 
+					class:active={appState.zenMode}
+					onclick={() => appState.toggleZenMode()} 
+					title={appState.zenMode ? 'Exit Zen Mode (Esc)' : 'Enter Zen Mode'}
+				>
+					{#if appState.zenMode}
+						<Minimize2 size={16} /> <span>Exit Zen</span>
+					{:else}
+						<Maximize2 size={16} /> <span>Zen Mode</span>
+					{/if}
 				</button>
 			</div>
 		</div>
@@ -182,6 +203,17 @@ $effect(() => {
 		pointer-events: none;
 	}
 
+	.top-nav.zen {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.4s ease;
+	}
+
+	.top-nav.zen:hover {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
 	.mobile-menu {
 		display: none;
 		pointer-events: auto;
@@ -200,15 +232,24 @@ $effect(() => {
 
 	.glass-pill-actions {
 		display: flex;
+		align-items: center;
+		gap: 4px;
 		background: var(--overlay);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		border: 1px solid var(--border);
-		padding: 6px 16px;
+		padding: 6px 12px;
 		border-radius: 40px;
 		box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 		pointer-events: auto;
 		transition: all 0.3s ease;
+	}
+
+	.pill-divider {
+		width: 1px;
+		height: 16px;
+		background: var(--border);
+		margin: 0 4px;
 	}
 
 	.action-btn {
@@ -218,11 +259,23 @@ $effect(() => {
 		font-size: 0.85rem;
 		font-weight: 600;
 		color: var(--text);
-		transition: opacity 0.2s;
+		transition: opacity 0.2s, color 0.2s;
+		padding: 4px 8px;
+		border-radius: 20px;
 	}
 
 	.action-btn:hover {
 		opacity: 0.7;
+		color: var(--accent);
+	}
+
+	.zen-btn.active {
+		color: var(--accent);
+		background: var(--accent-glow);
+	}
+
+	.zen-btn.active:hover {
+		opacity: 1;
 		color: var(--accent);
 	}
 

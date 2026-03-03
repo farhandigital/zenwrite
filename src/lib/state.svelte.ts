@@ -10,6 +10,7 @@ export class AppState {
 	sidebarOpen = $state(false);
 	tocOpen = $state(false);
 	settingsOpen = $state(false);
+	zenMode = $state(false);
 	scrollToIndex: number | null = $state(null);
 
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -47,6 +48,16 @@ export class AppState {
 		this.theme = this.theme === 'light' ? 'dark' : 'light';
 		localStorage.setItem('theme', this.theme);
 		this.applyTheme();
+	}
+
+	toggleZenMode() {
+		this.zenMode = !this.zenMode;
+		if (this.zenMode) {
+			// Close all panels when entering zen mode
+			this.tocOpen = false;
+			this.settingsOpen = false;
+			this.sidebarOpen = false;
+		}
 	}
 
 	private applyTheme() {
