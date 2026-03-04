@@ -57,6 +57,10 @@ export class AppState {
 			this.tocOpen = false;
 			this.settingsOpen = false;
 			this.sidebarOpen = false;
+			// Trigger browser full screen
+			document.documentElement.requestFullscreen();
+		} else {
+			document.exitFullscreen();
 		}
 	}
 
