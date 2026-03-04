@@ -103,10 +103,11 @@ function close() {
 		border-left-color: var(--border);
 	}
 
-	/* Zen: slide off-screen to the right, keeping its layout space intact.
-	   This mirrors the sidebar's translateX(-100%), keeping the editor dead-centered. */
+	/* Zen: collapse width to 0, releasing layout space so the editor expands
+	   to full viewport width and re-centers itself via margin: auto. */
 	.toc-panel.zen {
-		transform: translateX(100%);
+		width: 0;
+		border-left-color: transparent;
 	}
 
 	/* --- Inner wrapper: fixed at full panel width so content never reflows during animation --- */

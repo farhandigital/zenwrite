@@ -33,58 +33,62 @@ function getTitle(title: string) {
 </script>
 
 <aside class="sidebar frosted-glass" class:open={appState.sidebarOpen} class:zen={appState.zenMode}>
-	<div class="sidebar-header">
-		<h2>ZenWrite</h2>
-		<div class="window-actions">
-			<button class="icon-btn" onclick={createNew} title="New Note">
-				<Plus size={18} />
+	<!-- Inner wrapper stays at fixed 280px so content doesn't squish during the
+	     width-collapse animation. overflow:hidden on the aside clips it cleanly. -->
+	<div class="sidebar-inner">
+		<div class="sidebar-header">
+			<h2>ZenWrite</h2>
+			<div class="window-actions">
+				<button class="icon-btn" onclick={createNew} title="New Note">
+					<Plus size={18} />
+				</button>
+				<button class="icon-btn" onclick={() => appState.toggleTheme()} title="Toggle Theme">
+					{#if appState.theme === 'dark'}
+						<Sun size={18} />
+					{:else}
+						<Moon size={18} />
+					{/if}
+				</button>
+			</div>
+		</div>
+
+		<div class="file-list">
+			{#each appState.documents as doc (doc.id)}
+				<div 
+					class="file-item" 
+					class:active={appState.currentDocId === doc.id}
+					onclick={() => handleFileClick(doc.id)}
+					onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
+					role="button"
+					tabindex="0"
+				>
+					<div class="file-item-left">
+						<FileText size={16} class="file-icon" />
+						<span class="file-title">{getTitle(doc.title)}</span>
+					</div>
+					<div class="file-item-actions">
+						<button class="icon-btn danger" onclick={(e) => deleteDoc(doc.id, e)} title="Delete Note">
+							<Trash size={14} />
+						</button>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<div class="sidebar-footer">
+			<button class="menu-item" onclick={() => appState.tocOpen = !appState.tocOpen}>
+				<List size={18} />
+				<span>Table of Contents</span>
 			</button>
-			<button class="icon-btn" onclick={() => appState.toggleTheme()} title="Toggle Theme">
-				{#if appState.theme === 'dark'}
-					<Sun size={18} />
-				{:else}
-					<Moon size={18} />
-				{/if}
+			<button class="menu-item" onclick={() => appState.settingsOpen = !appState.settingsOpen}>
+				<Settings size={18} />
+				<span>Astro Settings</span>
+			</button>
+			<button class="menu-item zen-toggle" onclick={() => appState.toggleZenMode()} title="Enter Zen Mode">
+				<Focus size={18} />
+				<span>Zen Mode</span>
 			</button>
 		</div>
-	</div>
-
-	<div class="file-list">
-		{#each appState.documents as doc (doc.id)}
-			<div 
-				class="file-item" 
-				class:active={appState.currentDocId === doc.id}
-				onclick={() => handleFileClick(doc.id)}
-				onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
-				role="button"
-				tabindex="0"
-			>
-				<div class="file-item-left">
-					<FileText size={16} class="file-icon" />
-					<span class="file-title">{getTitle(doc.title)}</span>
-				</div>
-				<div class="file-item-actions">
-					<button class="icon-btn danger" onclick={(e) => deleteDoc(doc.id, e)} title="Delete Note">
-						<Trash size={14} />
-					</button>
-				</div>
-			</div>
-		{/each}
-	</div>
-
-	<div class="sidebar-footer">
-		<button class="menu-item" onclick={() => appState.tocOpen = !appState.tocOpen}>
-			<List size={18} />
-			<span>Table of Contents</span>
-		</button>
-		<button class="menu-item" onclick={() => appState.settingsOpen = !appState.settingsOpen}>
-			<Settings size={18} />
-			<span>Astro Settings</span>
-		</button>
-		<button class="menu-item zen-toggle" onclick={() => appState.toggleZenMode()} title="Enter Zen Mode">
-			<Focus size={18} />
-			<span>Zen Mode</span>
-		</button>
 	</div>
 </aside>
 
@@ -92,16 +96,30 @@ function getTitle(title: string) {
 	.sidebar {
 		width: 280px;
 		height: 100%;
-		display: flex;
-		flex-direction: column;
+		overflow: hidden;
+		flex-shrink: 0;
 		border-right: 1px solid var(--border);
 		background: var(--surface);
-		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		transition:
+			width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+			border-color 0.3s;
 		z-index: 40;
 	}
 
+	/* Zen: collapse width to 0, releasing layout space so the editor
+	   expands to fill the full viewport and re-centers via margin: auto. */
 	.sidebar.zen {
-		transform: translateX(-100%);
+		width: 0;
+		border-right-color: transparent;
+	}
+
+	/* Fixed-width inner wrapper prevents content from reflowing
+	   during the width-collapse animation */
+	.sidebar-inner {
+		width: 280px;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.sidebar-header {
