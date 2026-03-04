@@ -2,10 +2,6 @@
 import { X } from 'lucide-svelte';
 import { appState } from '$lib/state.svelte';
 
-function close() {
-	appState.tocOpen = false;
-}
-
 interface Heading {
 	level: number;
 	text: string;
@@ -28,29 +24,43 @@ let headings: Heading[] = $derived.by(() => {
 
 function scrollToHeading(index: number) {
 	appState.scrollToIndex = index;
+	// On mobile, close the panel after navigating
 	if (window.innerWidth <= 768) {
 		appState.tocOpen = false;
 	}
 }
+
+function close() {
+	appState.tocOpen = false;
+}
 </script>
 
-{#if appState.tocOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="drawer-overlay" onclick={close}></div>
-	<div class="drawer frosted-glass">
-		<div class="drawer-header">
+<!--
+	The ToC is a persistent right-column panel (always in the DOM).
+	- width: 0 when closed → 280px when open, so it occupies/releases layout space
+	  symmetrically with the 280px left Sidebar, keeping the Editor always centered.
+	- zen mode: slides translateX(100%) off-screen while retaining its layout space,
+	  mirroring the sidebar's translateX(-100%), so the editor stays perfectly still.
+-->
+<aside
+	class="toc-panel frosted-glass"
+	class:open={appState.tocOpen}
+	class:zen={appState.zenMode}
+	aria-label="Table of Contents"
+>
+	<div class="toc-inner">
+		<div class="toc-header">
 			<h3>Table of Contents</h3>
 			<button class="icon-btn" onclick={close} title="Close ToC">
 				<X size={20} />
 			</button>
 		</div>
 
-		<div class="drawer-content">
+		<div class="toc-content">
 			{#if headings.length > 0}
 				<ul class="toc-list">
-					{#each headings as heading}
-						<li 
+					{#each headings as heading (heading.index)}
+						<li
 							style="padding-left: {(heading.level - 1) * 16}px;"
 							class="toc-item"
 						>
@@ -63,65 +73,67 @@ function scrollToHeading(index: number) {
 			{:else}
 				<div class="empty-toc">
 					<p class="muted">No headings found.</p>
-					<p class="muted-small">Use # formatting (e.g. ## Title) to create structure in your document.</p>
+					<p class="muted-small">
+						Use # formatting (e.g. ## Title) to create structure in your document.
+					</p>
 				</div>
 			{/if}
 		</div>
 	</div>
-{/if}
+</aside>
 
 <style>
-	.drawer-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0,0,0,0.2);
-		z-index: 50;
+	/* --- Panel shell: transitions width to enter/leave the flex layout --- */
+	.toc-panel {
+		width: 0;
+		height: 100%;
+		flex-shrink: 0;
+		overflow: hidden;
+		background: var(--surface);
+		border-left: 1px solid transparent;
+		transition:
+			width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+			border-color 0.3s,
+			transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		z-index: 40;
 	}
 
-	.drawer {
-		position: fixed;
-		top: 0;
-		left: 280px; /* Attach next to the sidebar on desktop */
-		bottom: 0;
-		width: 300px;
-		background: var(--surface);
-		z-index: 60;
-		box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+	.toc-panel.open {
+		width: 280px;
+		border-left-color: var(--border);
+	}
+
+	/* Zen: slide off-screen to the right, keeping its layout space intact.
+	   This mirrors the sidebar's translateX(-100%), keeping the editor dead-centered. */
+	.toc-panel.zen {
+		transform: translateX(100%);
+	}
+
+	/* --- Inner wrapper: fixed at full panel width so content never reflows during animation --- */
+	.toc-inner {
+		width: 280px;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
-		border-right: 1px solid var(--border);
-		animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
-	@media (max-width: 768px) {
-		.drawer {
-			left: 0;
-		}
-	}
-
-	@keyframes slideInLeft {
-		from { transform: translateX(-100%); }
-		to { transform: translateX(0); }
-	}
-
-	.drawer-header {
+	.toc-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 24px;
+		padding: 20px 20px;
 		border-bottom: 1px solid var(--border);
+		flex-shrink: 0;
 	}
 
-	.drawer-header h3 {
-		font-size: 1.1rem;
+	.toc-header h3 {
+		font-size: 1rem;
 		font-weight: 600;
+		letter-spacing: -0.02em;
 	}
 
-	.drawer-content {
-		padding: 24px;
+	.toc-content {
+		padding: 16px;
 		flex: 1;
 		overflow-y: auto;
 	}
@@ -146,17 +158,17 @@ function scrollToHeading(index: number) {
 		list-style: none;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 2px;
 	}
 
 	.toc-item button {
 		text-align: left;
-		font-size: 0.95rem;
+		font-size: 0.875rem;
 		color: var(--text-muted);
-		transition: color 0.2s;
+		transition: color 0.2s, background 0.2s;
 		line-height: 1.4;
 		width: 100%;
-		padding: 4px 8px;
+		padding: 6px 8px;
 		border-radius: 6px;
 	}
 
@@ -169,17 +181,38 @@ function scrollToHeading(index: number) {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+		padding-top: 4px;
 	}
 
 	.muted {
 		color: var(--text-muted);
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 	}
 
 	.muted-small {
 		color: var(--text-muted);
 		opacity: 0.7;
-		font-size: 0.85rem;
+		font-size: 0.82rem;
 		line-height: 1.5;
+	}
+
+	/* On mobile: the panel becomes fixed/overlay (same as sidebar) */
+	@media (max-width: 768px) {
+		.toc-panel {
+			position: fixed;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			width: 0;
+			transform: none;
+		}
+
+		.toc-panel.open {
+			width: 280px;
+		}
+
+		.toc-panel.zen {
+			transform: none;
+		}
 	}
 </style>
