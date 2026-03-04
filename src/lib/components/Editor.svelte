@@ -15,7 +15,6 @@ import { appState } from '$lib/state.svelte';
 let titleInput: HTMLInputElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
 let editorView: EditorView | undefined;
-let autoSelectedDocIds = new Set<string>();
 
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLInputElement;
@@ -116,16 +115,15 @@ $effect(() => {
 });
 
 $effect(() => {
-	// Auto-focus and select title only for newly created documents
-	if (
-		appState.currentDocument &&
-		titleInput &&
-		!autoSelectedDocIds.has(appState.currentDocument.id)
-	) {
+	// Auto-focus and select title only for brand-new documents.
+	// `isNew` is persisted in the DB, so this survives page reloads and
+	// never misfires when navigating back to an existing document.
+	if (appState.currentDocument?.isNew && titleInput) {
 		untrack(() => {
 			titleInput!.focus();
 			titleInput!.select();
-			autoSelectedDocIds.add(appState.currentDocument!.id);
+			// Clear the flag immediately so it only fires once, ever.
+			appState.updateCurrent({ isNew: false });
 		});
 	}
 });

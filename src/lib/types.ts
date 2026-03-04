@@ -13,4 +13,6 @@ export interface Document {
 	config: DocumentConfig;
 	createdAt: number;
 	updatedAt: number;
+	/** True only for brand-new documents until the title has been auto-selected once. */
+	isNew?: boolean;
 }

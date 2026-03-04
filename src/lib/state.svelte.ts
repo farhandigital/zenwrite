@@ -82,6 +82,7 @@ export class AppState {
 			},
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
+			isNew: true,
 		};
 		try {
 			await saveDocument(doc);
