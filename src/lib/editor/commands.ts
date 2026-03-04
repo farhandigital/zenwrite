@@ -220,7 +220,23 @@ export const handleEnterKeyAtDOMLevel = EditorView.domEventHandlers({
 	},
 });
 
+/**
+ * Custom Enter key handler that ensures new lines are always created,
+ * even at the end of the document or with no content below.
+ */
+const insertNewline: Command = (view) => {
+	const { state, dispatch } = view;
+	const changes = state.changeByRange((range) => ({
+		changes: { from: range.from, to: range.to, insert: '\n' },
+		range: EditorSelection.cursor(range.from + 1),
+	}));
+
+	dispatch(state.update(changes, { scrollIntoView: true, userEvent: 'input' }));
+	return true;
+};
+
 export const markdownKeymap = [
+	{ key: 'Enter', run: insertNewline },
 	{ key: 'Mod-b', run: toggleInlineMarkup('**') },
 	{ key: 'Mod-i', run: toggleInlineMarkup('*') },
 	{ key: 'Mod-`', run: toggleInlineMarkup('`') },
