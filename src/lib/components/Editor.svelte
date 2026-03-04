@@ -30,6 +30,16 @@ function handleTitleKeydown(e: KeyboardEvent) {
 
 let copied = $state(false);
 
+function formatDate(ts: number): string {
+	return new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+		hour: 'numeric',
+		minute: 'numeric',
+	}).format(new Date(ts));
+}
+
 async function copyMarkdown() {
 	const doc = appState.currentDocument;
 	if (!doc) return;
@@ -166,6 +176,12 @@ $effect(() => {
 				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}
 			/>
+
+			<div class="doc-meta">
+				<span>Created {formatDate(appState.currentDocument.createdAt)}</span>
+				<span class="meta-divider">·</span>
+				<span>Updated {formatDate(appState.currentDocument.updatedAt)}</span>
+			</div>
 			
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
@@ -311,6 +327,21 @@ $effect(() => {
 
 	.title-input::placeholder {
 		color: var(--text-muted);
+		opacity: 0.5;
+	}
+
+	.doc-meta {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 0.78rem;
+		color: var(--text-muted);
+		opacity: 0.6;
+		letter-spacing: 0.01em;
+		margin-top: -12px;
+	}
+
+	.meta-divider {
 		opacity: 0.5;
 	}
 

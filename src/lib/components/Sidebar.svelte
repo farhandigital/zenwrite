@@ -30,6 +30,16 @@ function deleteDoc(id: string, event: MouseEvent) {
 function getTitle(title: string) {
 	return title.trim().length > 0 ? title : 'Untitled Document';
 }
+
+function formatDate(ts: number): string {
+	return new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+		hour: 'numeric',
+		minute: 'numeric',
+	}).format(new Date(ts));
+}
 </script>
 
 <aside class="sidebar frosted-glass" class:open={appState.sidebarOpen} class:zen={appState.zenMode}>
@@ -64,7 +74,10 @@ function getTitle(title: string) {
 				>
 					<div class="file-item-left">
 						<FileText size={16} class="file-icon" />
-						<span class="file-title">{getTitle(doc.title)}</span>
+						<div class="file-meta">
+							<span class="file-title">{getTitle(doc.title)}</span>
+							<span class="file-date">{formatDate(doc.createdAt)}</span>
+						</div>
 					</div>
 					<div class="file-item-actions">
 						<button class="icon-btn danger" onclick={(e) => deleteDoc(doc.id, e)} title="Delete Note">
@@ -152,7 +165,7 @@ function getTitle(title: string) {
 
 	.file-item {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		padding: 10px 12px;
 		border-radius: 8px;
@@ -175,9 +188,24 @@ function getTitle(title: string) {
 
 	.file-item-left {
 		display: flex;
-		align-items: center;
-		gap: 12px;
+		align-items: flex-start;
+		gap: 10px;
 		overflow: hidden;
+		flex: 1;
+	}
+
+	.file-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		overflow: hidden;
+	}
+
+	.file-date {
+		font-size: 0.72rem;
+		color: var(--text-muted);
+		opacity: 0.7;
+		letter-spacing: 0.01em;
 	}
 
 	:global(.file-icon) {
