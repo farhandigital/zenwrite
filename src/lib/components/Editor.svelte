@@ -2,7 +2,7 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { EditorView, keymap } from '@codemirror/view';
-import { Download, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
+import { Check, Copy, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
 import { untrack } from 'svelte';
 import {
 	customHighlightStyle,
@@ -28,24 +28,19 @@ function handleTitleKeydown(e: KeyboardEvent) {
 	}
 }
 
-function exportMarkdown() {
+let copied = $state(false);
+
+async function copyMarkdown() {
 	const doc = appState.currentDocument;
 	if (!doc) return;
 
-	const astroFrontmatterStr = appState.getAstroExport(doc);
-	const blob = new Blob([astroFrontmatterStr], { type: 'text/markdown' });
-	const url = URL.createObjectURL(blob);
+	const markdownContent = appState.getAstroExport(doc);
+	await navigator.clipboard.writeText(markdownContent);
 
-	const a = document.createElement('a');
-	a.href = url;
-	// Create a clean filename
-	const filename =
-		(doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.md';
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
+	copied = true;
+	setTimeout(() => {
+		copied = false;
+	}, 2000);
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
@@ -138,8 +133,12 @@ $effect(() => {
 				<Menu size={24} />
 			</button>
 			<div class="glass-pill-actions">
-				<button class="action-btn" onclick={exportMarkdown} title="Export Astro Markdown">
-					<Download size={16} /> <span>Export to Astro</span>
+				<button class="action-btn" onclick={copyMarkdown} title="Copy Markdown to clipboard">
+					{#if copied}
+						<Check size={16} /> <span>Copied!</span>
+					{:else}
+						<Copy size={16} /> <span>Copy Markdown</span>
+					{/if}
 				</button>
 				<div class="pill-divider"></div>
 				<button 
