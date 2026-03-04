@@ -13,6 +13,12 @@ export class AppState {
 	zenMode = $state(false);
 	scrollToIndex: number | null = $state(null);
 
+	private preZenPanelsState = {
+		tocOpen: false,
+		settingsOpen: false,
+		sidebarOpen: false,
+	};
+
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 	get currentDocument(): Document | null {
@@ -53,6 +59,12 @@ export class AppState {
 	toggleZenMode() {
 		this.zenMode = !this.zenMode;
 		if (this.zenMode) {
+			// Save state of panels before entering zen mode
+			this.preZenPanelsState = {
+				tocOpen: this.tocOpen,
+				settingsOpen: this.settingsOpen,
+				sidebarOpen: this.sidebarOpen,
+			};
 			// Close all panels when entering zen mode
 			this.tocOpen = false;
 			this.settingsOpen = false;
@@ -61,6 +73,9 @@ export class AppState {
 			document.documentElement.requestFullscreen();
 		} else {
 			document.exitFullscreen();
+			this.tocOpen = this.preZenPanelsState.tocOpen;
+			this.settingsOpen = this.preZenPanelsState.settingsOpen;
+			this.sidebarOpen = this.preZenPanelsState.sidebarOpen;
 		}
 	}
 
