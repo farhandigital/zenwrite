@@ -7,10 +7,26 @@ import { appState } from '$lib/state.svelte';
 
 let { children } = $props();
 
+function handleGlobalShortcut(event: KeyboardEvent) {
+	const mod1 = event.ctrlKey || event.metaKey;
+	const mod2 = event.shiftKey;
+	const key = event.key.toLowerCase();
+	if (mod1 && mod2 && key === 'n') {
+		event.preventDefault();
+		appState.createNew();
+	}
+	if (mod1 && key === ' ') {
+		event.preventDefault();
+		appState.toggleZenMode();
+	}
+}
+
 onMount(() => {
 	appState.init();
 });
 </script>
+
+<svelte:window onkeydown={handleGlobalShortcut} />
 
 {#if appState.documents.length > 0}
 	<div class="app-layout">
