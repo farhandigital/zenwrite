@@ -74,7 +74,7 @@ export class AppState {
 		const id = crypto.randomUUID();
 		const doc: Document = {
 			id,
-			title: 'Untitled Document',
+			title: '',
 			content: '',
 			config: {
 				pubDate: new Date().toISOString().split('T')[0],
@@ -138,9 +138,10 @@ export class AppState {
 	getAstroExport(doc: Document): string {
 		const clonedConfig = structuredClone($state.snapshot(doc.config));
 
-		// Map our internal 'title' into the Astro frontmatter
+		// Map our internal 'title' into the Astro frontmatter.
+		// Fall back to 'Untitled Document' so the exported frontmatter is never blank.
 		if (!clonedConfig.title) {
-			clonedConfig.title = doc.title;
+			clonedConfig.title = doc.title.trim() || 'Untitled Document';
 		}
 
 		if (clonedConfig.tags && clonedConfig.tags.length === 0) {

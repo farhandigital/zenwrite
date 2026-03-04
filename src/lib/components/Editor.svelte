@@ -110,13 +110,13 @@ $effect(() => {
 });
 
 $effect(() => {
-	// Auto-focus and select title only for brand-new documents.
-	// `isNew` is persisted in the DB, so this survives page reloads and
+	// Auto-focus title for brand-new documents so the cursor lands there,
+	// signalling clearly that the user should start by writing a title.
+	// `isNew` is persisted in the DB so this survives page reloads and
 	// never misfires when navigating back to an existing document.
 	if (appState.currentDocument?.isNew && titleInput) {
 		untrack(() => {
 			titleInput!.focus();
-			titleInput!.select();
 			// Clear the flag immediately so it only fires once, ever.
 			appState.updateCurrent({ isNew: false });
 		});
