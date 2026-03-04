@@ -82,7 +82,7 @@ function getTitle(title: string) {
 			</button>
 			<button class="menu-item" onclick={() => appState.settingsOpen = !appState.settingsOpen}>
 				<Settings size={18} />
-				<span>Astro Settings</span>
+				<span>Frontmatter</span>
 			</button>
 			<button class="menu-item zen-toggle" onclick={() => appState.toggleZenMode()} title="Enter Zen Mode">
 				<Focus size={18} />

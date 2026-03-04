@@ -30,7 +30,7 @@ function handleInput(key: string, e: Event) {
 	<div class="drawer-overlay" onclick={close}></div>
 	<div class="drawer frosted-glass">
 		<div class="drawer-header">
-			<h3>Astro Frontmatter</h3>
+			<h3>Frontmatter</h3>
 			<button class="icon-btn" onclick={close} title="Close settings">
 				<X size={20} />
 			</button>
