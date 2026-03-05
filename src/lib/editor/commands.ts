@@ -49,7 +49,7 @@ export const minimalTheme = EditorView.theme({
 	'.cm-cursor, .cm-dropCursor': {
 		borderLeftColor: 'var(--accent)',
 		borderLeftWidth: '3px',
-		transition: 'border-color 0.2s',
+		transition: 'left 80ms ease-out, top 80ms ease-out',
 	},
 	'&.cm-focused .cm-cursor': {
 		borderLeftColor: 'var(--accent)',

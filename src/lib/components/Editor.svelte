@@ -1,7 +1,7 @@
 <script lang="ts">
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
-import { EditorView, keymap } from '@codemirror/view';
+import { drawSelection, EditorView, keymap } from '@codemirror/view';
 import { Check, Copy, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
 import { untrack } from 'svelte';
 import {
@@ -74,6 +74,7 @@ $effect(() => {
 				editorView = new EditorView({
 					doc: cDoc.content,
 					extensions: [
+						drawSelection(),
 						handleEnterKeyAtDOMLevel,
 						EditorView.lineWrapping,
 						keymap.of(markdownKeymap),
