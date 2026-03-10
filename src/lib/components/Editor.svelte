@@ -62,17 +62,17 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 let initializedId: string | null = null;
 
 $effect(() => {
-	const cDoc = appState.currentDocument;
+	const currentDocument = appState.currentDocument;
 
-	if (cDoc && editorContainer) {
+	if (currentDocument && editorContainer) {
 		untrack(() => {
-			if (initializedId !== cDoc.id) {
+			if (initializedId !== currentDocument.id) {
 				if (editorView) {
 					editorView.destroy();
 				}
 
 				editorView = new EditorView({
-					doc: cDoc.content,
+					doc: currentDocument.content,
 					extensions: [
 						drawSelection(),
 						handleEnterKeyAtDOMLevel,
@@ -92,10 +92,10 @@ $effect(() => {
 					],
 					parent: editorContainer,
 				});
-				initializedId = cDoc.id;
+				initializedId = currentDocument.id;
 			}
 		});
-	} else if (!cDoc && editorView) {
+	} else if (!currentDocument && editorView) {
 		untrack(() => {
 			editorView!.destroy();
 			editorView = undefined;
