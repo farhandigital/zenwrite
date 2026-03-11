@@ -12,13 +12,20 @@ import {
 } from '$lib/editor/commands';
 import { appState } from '$lib/state.svelte';
 
-let titleInput: HTMLInputElement | undefined = $state();
+let titleInput: HTMLTextAreaElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
 let editorView: EditorView | undefined;
 
+function autoResizeTitle() {
+	if (!titleInput) return;
+	titleInput.style.height = 'auto';
+	titleInput.style.height = `${titleInput.scrollHeight}px`;
+}
+
 function handleTitleChange(e: Event) {
-	const target = e.target as HTMLInputElement;
+	const target = e.target as HTMLTextAreaElement;
 	appState.updateCurrent({ title: target.value });
+	autoResizeTitle();
 }
 
 function handleTitleKeydown(e: KeyboardEvent) {
@@ -133,6 +140,16 @@ $effect(() => {
 		});
 	}
 });
+
+$effect(() => {
+	// Resize the textarea to fit the current title whenever the document
+	// changes (switching docs) or when the textarea first mounts.
+	// Reading both `currentDocument.title` and `titleInput` makes Svelte
+	// re-run this effect on either change.
+	if (appState.currentDocument?.title !== undefined && titleInput) {
+		untrack(() => autoResizeTitle());
+	}
+});
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -168,15 +185,15 @@ $effect(() => {
 		</div>
 
 		<div class="editor-content" role="region" aria-label="Editor Area">
-			<input 
+			<textarea 
+				rows="1"
 				class="title-input" 
-				type="text" 
 				placeholder="Untitled Document" 
 				value={appState.currentDocument.title} 
 				oninput={handleTitleChange}
 				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}
-			/>
+			></textarea>
 
 			<div class="doc-meta">
 				<span>Created {formatDate(appState.currentDocument.createdAt)}</span>
@@ -324,7 +341,9 @@ $effect(() => {
 		line-height: 1.2;
 		letter-spacing: -0.03em;
 		width: 100%;
-		word-wrap: normal;
+		resize: none;
+		overflow: hidden;
+		height: auto;
 	}
 
 	.title-input::placeholder {
