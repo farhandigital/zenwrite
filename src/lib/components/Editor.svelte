@@ -155,7 +155,7 @@ $effect(() => {
 				<button 
 					class="action-btn zen-btn" 
 					class:active={appState.zenMode}
-					onclick={() => appState.toggleZenMode()} 
+					onclick={appState.toggleZenMode} 
 					title={appState.zenMode ? 'Exit Zen Mode (Esc)' : 'Enter Zen Mode'}
 				>
 					{#if appState.zenMode}
