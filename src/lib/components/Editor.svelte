@@ -315,7 +315,7 @@ $effect(() => {
 
 	.title-input {
 		font-family: var(--font-editor);
-		font-size: 3rem;
+		font-size: 2rem;
 		font-weight: 700;
 		color: var(--text);
 		border: none;
@@ -324,6 +324,7 @@ $effect(() => {
 		line-height: 1.2;
 		letter-spacing: -0.03em;
 		width: 100%;
+		word-wrap: normal;
 	}
 
 	.title-input::placeholder {
