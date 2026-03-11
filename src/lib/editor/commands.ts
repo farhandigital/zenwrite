@@ -190,15 +190,24 @@ export const handleEnterKeyAtDOMLevel = EditorView.domEventHandlers({
 				const quotePrefix = blockQuoteMatch[1];
 				const contentAfterQuote = lineText.slice(quotePrefix.length);
 
-				// If the line is just "> " or ">" with nothing after, exit the block quote
+				// If the line is just "> " or ">" with nothing after, exit the block quote.
+				// We replace the ">" content with "\n" (instead of "") so that there is a
+				// blank separator line between the previous blockquote line and the cursor.
+				// Without this blank line, CommonMark's "lazy continuation" rule (§5.1)
+				// would re-apply blockquote styling to whatever the user types next.
 				if (!contentAfterQuote.trim()) {
 					event.preventDefault();
-					const changes = state.changeByRange((range) => ({
-						changes: { from: range.from, to: range.to, insert: '\n' },
-						range: EditorSelection.cursor(range.from + 1),
-					}));
 					view.dispatch(
-						state.update(changes, { scrollIntoView: true, userEvent: 'input' }),
+						state.update(
+							{
+								changes: { from: lineStart, to: lineEnd, insert: '\n' },
+								// lineStart + 1 puts the cursor *after* the inserted \n,
+								// i.e. on the new blank line below the blockquote.
+								selection: EditorSelection.cursor(lineStart + 1),
+								scrollIntoView: true,
+							},
+							{ userEvent: 'input' },
+						),
 					);
 					return true;
 				}
