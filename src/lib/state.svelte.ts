@@ -25,7 +25,7 @@ export class AppState {
 		return this.documents.find((d) => d.id === this.currentDocId) || null;
 	}
 
-	async init() {
+	init = async () => {
 		if (typeof window === 'undefined') return;
 
 		const savedTheme = localStorage.getItem('theme');
@@ -48,15 +48,15 @@ export class AppState {
 		} else {
 			this.currentDocId = this.documents[0].id;
 		}
-	}
+	};
 
-	toggleTheme() {
+	toggleTheme = () => {
 		this.theme = this.theme === 'light' ? 'dark' : 'light';
 		localStorage.setItem('theme', this.theme);
 		this.applyTheme();
-	}
+	};
 
-	toggleZenMode() {
+	toggleZenMode = () => {
 		this.zenMode = !this.zenMode;
 		if (this.zenMode) {
 			// Save state of panels before entering zen mode
@@ -77,9 +77,9 @@ export class AppState {
 			this.settingsOpen = this.preZenPanelsState.settingsOpen;
 			this.sidebarOpen = this.preZenPanelsState.sidebarOpen;
 		}
-	}
+	};
 
-	private applyTheme() {
+	private applyTheme = () => {
 		if (typeof document !== 'undefined') {
 			if (this.theme === 'dark') {
 				document.documentElement.classList.add('dark');
@@ -87,9 +87,9 @@ export class AppState {
 				document.documentElement.classList.remove('dark');
 			}
 		}
-	}
+	};
 
-	async createNew() {
+	createNew = async () => {
 		const id = crypto.randomUUID();
 		const doc: Document = {
 			id,
@@ -110,9 +110,9 @@ export class AppState {
 		}
 		this.documents = [doc, ...this.documents];
 		this.currentDocId = doc.id;
-	}
+	};
 
-	updateCurrent(updates: Partial<Document>) {
+	updateCurrent = async (updates: Partial<Document>) => {
 		const index = this.documents.findIndex((d) => d.id === this.currentDocId);
 		if (index === -1) return;
 
@@ -135,9 +135,9 @@ export class AppState {
 				});
 			}
 		}, 400);
-	}
+	};
 
-	async deleteDoc(id: string) {
+	deleteDoc = async (id: string) => {
 		try {
 			await deleteDocument(id);
 		} catch (err) {
@@ -152,7 +152,7 @@ export class AppState {
 				await this.createNew();
 			}
 		}
-	}
+	};
 
 	getAstroExport(doc: Document): string {
 		const clonedConfig = structuredClone($state.snapshot(doc.config));
