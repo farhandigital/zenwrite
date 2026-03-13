@@ -15,6 +15,8 @@ import { appState } from '$lib/state.svelte';
 let titleInput: HTMLTextAreaElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
 let editorView: EditorView | undefined;
+let lastAutoScrollTime = 0;
+const autoScrollCooldown = 80;
 
 function autoResizeTitle() {
 	if (!titleInput) return;
@@ -94,6 +96,36 @@ $effect(() => {
 								appState.updateCurrent({
 									content: update.state.doc.toString(),
 								});
+							}
+							if (update.selectionSet && editorView) {
+								const cursor = update.state.selection.main.head;
+								const coords = editorView.coordsAtPos(cursor);
+								if (!coords) return;
+
+								let scrollableParent: HTMLElement | null =
+									editorView.scrollDOM.parentElement;
+								while (scrollableParent) {
+									if (
+										scrollableParent.scrollHeight >
+										scrollableParent.clientHeight
+									)
+										break;
+									scrollableParent = scrollableParent.parentElement;
+								}
+								if (!scrollableParent) return;
+
+								const parentRect = scrollableParent.getBoundingClientRect();
+								const scrollThreshold = 120;
+
+								if (coords.bottom > parentRect.bottom - scrollThreshold) {
+									const now = Date.now();
+									if (now - lastAutoScrollTime > autoScrollCooldown) {
+										const scrollAmount =
+											coords.bottom - (parentRect.bottom - scrollThreshold);
+										scrollableParent.scrollTop += scrollAmount;
+										lastAutoScrollTime = now;
+									}
+								}
 							}
 						}),
 					],
