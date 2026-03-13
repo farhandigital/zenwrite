@@ -4,13 +4,14 @@ import { syntaxHighlighting } from '@codemirror/language';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
 import { Check, Copy, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
 import { untrack } from 'svelte';
+import { docStore } from '$lib/doc-store.svelte';
 import {
 	customHighlightStyle,
 	handleEnterKeyAtDOMLevel,
 	markdownKeymap,
 	minimalTheme,
 } from '$lib/editor/commands';
-import { appState } from '$lib/state.svelte';
+import { uiState } from '$lib/ui-state.svelte';
 
 let titleInput: HTMLTextAreaElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
@@ -26,7 +27,7 @@ function autoResizeTitle() {
 
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLTextAreaElement;
-	appState.updateCurrent({ title: target.value });
+	docStore.updateCurrent({ title: target.value });
 	autoResizeTitle();
 }
 
@@ -50,10 +51,10 @@ function formatDate(ts: number): string {
 }
 
 async function copyMarkdown() {
-	const doc = appState.currentDocument;
+	const doc = docStore.currentDocument;
 	if (!doc) return;
 
-	const markdownContent = appState.getAstroExport(doc);
+	const markdownContent = docStore.getAstroExport(doc);
 	await navigator.clipboard.writeText(markdownContent);
 
 	copied = true;
@@ -63,15 +64,15 @@ async function copyMarkdown() {
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
-	if (e.key === 'Escape' && appState.zenMode) {
-		appState.zenMode = false;
+	if (e.key === 'Escape' && uiState.zenMode) {
+		uiState.zenMode = false;
 	}
 }
 
 let initializedId: string | null = null;
 
 $effect(() => {
-	const currentDocument = appState.currentDocument;
+	const currentDocument = docStore.currentDocument;
 
 	if (currentDocument && editorContainer) {
 		untrack(() => {
@@ -90,10 +91,10 @@ $effect(() => {
 						markdown(),
 						syntaxHighlighting(customHighlightStyle, { fallback: true }),
 						minimalTheme,
-						EditorView.theme({}, { dark: appState.theme === 'dark' }),
+						EditorView.theme({}, { dark: uiState.theme === 'dark' }),
 						EditorView.updateListener.of((update) => {
 							if (update.docChanged) {
-								appState.updateCurrent({
+								docStore.updateCurrent({
 									content: update.state.doc.toString(),
 								});
 							}
@@ -144,8 +145,8 @@ $effect(() => {
 });
 
 $effect(() => {
-	if (appState.scrollToIndex !== null && editorView) {
-		const pos = appState.scrollToIndex;
+	if (uiState.scrollToIndex !== null && editorView) {
+		const pos = uiState.scrollToIndex;
 		// Untrack to prevent circular dependencies
 		untrack(() => {
 			editorView!.dispatch({
@@ -154,7 +155,7 @@ $effect(() => {
 			});
 			editorView!.focus();
 			// Immediately clear the state
-			appState.scrollToIndex = null;
+			uiState.scrollToIndex = null;
 		});
 	}
 });
@@ -164,11 +165,11 @@ $effect(() => {
 	// signalling clearly that the user should start by writing a title.
 	// `isNew` is persisted in the DB so this survives page reloads and
 	// never misfires when navigating back to an existing document.
-	if (appState.currentDocument?.isNew && titleInput) {
+	if (docStore.currentDocument?.isNew && titleInput) {
 		untrack(() => {
 			titleInput!.focus();
 			// Clear the flag immediately so it only fires once, ever.
-			appState.updateCurrent({ isNew: false });
+			docStore.updateCurrent({ isNew: false });
 		});
 	}
 });
@@ -178,7 +179,7 @@ $effect(() => {
 	// changes (switching docs) or when the textarea first mounts.
 	// Reading both `currentDocument.title` and `titleInput` makes Svelte
 	// re-run this effect on either change.
-	if (appState.currentDocument?.title !== undefined && titleInput) {
+	if (docStore.currentDocument?.title !== undefined && titleInput) {
 		untrack(() => autoResizeTitle());
 	}
 });
@@ -187,9 +188,9 @@ $effect(() => {
 <svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="editor-container">
-	{#if appState.currentDocument}
-		<div class="top-nav" class:zen={appState.zenMode}>
-			<button class="mobile-menu" onclick={() => appState.sidebarOpen = !appState.sidebarOpen}>
+	{#if docStore.currentDocument}
+		<div class="top-nav" class:zen={uiState.zenMode}>
+			<button class="mobile-menu" onclick={() => uiState.sidebarOpen = !uiState.sidebarOpen}>
 				<Menu size={24} />
 			</button>
 			<div class="glass-pill-actions">
@@ -203,11 +204,11 @@ $effect(() => {
 				<div class="pill-divider"></div>
 				<button 
 					class="action-btn zen-btn" 
-					class:active={appState.zenMode}
-					onclick={appState.toggleZenMode} 
-					title={appState.zenMode ? 'Exit Zen Mode (Esc)' : 'Enter Zen Mode'}
+					class:active={uiState.zenMode}
+					onclick={uiState.toggleZenMode} 
+					title={uiState.zenMode ? 'Exit Zen Mode (Esc)' : 'Enter Zen Mode'}
 				>
-					{#if appState.zenMode}
+					{#if uiState.zenMode}
 						<Minimize2 size={16} /> <span>Exit Zen</span>
 					{:else}
 						<Maximize2 size={16} /> <span>Zen Mode</span>
@@ -221,16 +222,16 @@ $effect(() => {
 				rows="1"
 				class="title-input" 
 				placeholder="Untitled Document" 
-				value={appState.currentDocument.title} 
+				value={docStore.currentDocument.title} 
 				oninput={handleTitleChange}
 				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}
 			></textarea>
 
 			<div class="doc-meta">
-				<span>Created {formatDate(appState.currentDocument.createdAt)}</span>
+				<span>Created {formatDate(docStore.currentDocument.createdAt)}</span>
 				<span class="meta-divider">·</span>
-				<span>Updated {formatDate(appState.currentDocument.updatedAt)}</span>
+				<span>Updated {formatDate(docStore.currentDocument.updatedAt)}</span>
 			</div>
 			
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>

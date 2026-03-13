@@ -2,22 +2,9 @@ import yaml from 'js-yaml';
 import { deleteDocument, getDocuments, saveDocument } from './db';
 import type { Document } from './types';
 
-export class AppState {
+export class DocStore {
 	documents: Document[] = $state([]);
 	currentDocId: string | null = $state(null);
-	theme: 'light' | 'dark' = $state('light');
-
-	sidebarOpen = $state(false);
-	tocOpen = $state(false);
-	settingsOpen = $state(false);
-	zenMode = $state(false);
-	scrollToIndex: number | null = $state(null);
-
-	private preZenPanelsState = {
-		tocOpen: false,
-		settingsOpen: false,
-		sidebarOpen: false,
-	};
 
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -27,14 +14,6 @@ export class AppState {
 
 	init = async () => {
 		if (typeof window === 'undefined') return;
-
-		const savedTheme = localStorage.getItem('theme');
-		if (savedTheme === 'dark' || savedTheme === 'light') {
-			this.theme = savedTheme;
-		} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-			this.theme = 'dark';
-		}
-		this.applyTheme();
 
 		try {
 			const docs = await getDocuments();
@@ -47,45 +26,6 @@ export class AppState {
 			await this.createNew();
 		} else {
 			this.currentDocId = this.documents[0].id;
-		}
-	};
-
-	toggleTheme = () => {
-		this.theme = this.theme === 'light' ? 'dark' : 'light';
-		localStorage.setItem('theme', this.theme);
-		this.applyTheme();
-	};
-
-	toggleZenMode = () => {
-		this.zenMode = !this.zenMode;
-		if (this.zenMode) {
-			// Save state of panels before entering zen mode
-			this.preZenPanelsState = {
-				tocOpen: this.tocOpen,
-				settingsOpen: this.settingsOpen,
-				sidebarOpen: this.sidebarOpen,
-			};
-			// Close all panels when entering zen mode
-			this.tocOpen = false;
-			this.settingsOpen = false;
-			this.sidebarOpen = false;
-			// Trigger browser full screen
-			document.documentElement.requestFullscreen();
-		} else {
-			document.exitFullscreen();
-			this.tocOpen = this.preZenPanelsState.tocOpen;
-			this.settingsOpen = this.preZenPanelsState.settingsOpen;
-			this.sidebarOpen = this.preZenPanelsState.sidebarOpen;
-		}
-	};
-
-	private applyTheme = () => {
-		if (typeof document !== 'undefined') {
-			if (this.theme === 'dark') {
-				document.documentElement.classList.add('dark');
-			} else {
-				document.documentElement.classList.remove('dark');
-			}
 		}
 	};
 
@@ -176,4 +116,4 @@ export class AppState {
 	}
 }
 
-export const appState = new AppState();
+export const docStore = new DocStore();

@@ -1,16 +1,17 @@
 <script lang="ts">
 import { X } from 'lucide-svelte';
-import { appState } from '$lib/state.svelte';
+import { docStore } from '$lib/doc-store.svelte';
+import { uiState } from '$lib/ui-state.svelte';
 
 function close() {
-	appState.settingsOpen = false;
+	uiState.settingsOpen = false;
 }
 
 function handleInput(key: string, e: Event) {
 	const target = e.target as HTMLInputElement;
 	const val = target.value;
-	if (appState.currentDocument) {
-		const config = { ...appState.currentDocument.config };
+	if (docStore.currentDocument) {
+		const config = { ...docStore.currentDocument.config };
 		if (key === 'tags') {
 			config.tags = val
 				.split(',')
@@ -19,12 +20,12 @@ function handleInput(key: string, e: Event) {
 		} else {
 			config[key] = val;
 		}
-		appState.updateCurrent({ config });
+		docStore.updateCurrent({ config });
 	}
 }
 </script>
 
-{#if appState.settingsOpen}
+{#if uiState.settingsOpen}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="drawer-overlay" onclick={close}></div>
@@ -37,13 +38,13 @@ function handleInput(key: string, e: Event) {
 		</div>
 
 		<div class="drawer-content">
-			{#if appState.currentDocument}
+			{#if docStore.currentDocument}
 				<div class="form-group">
 					<label for="pubDate">Publish Date / Year Format</label>
 					<input 
 						id="pubDate" 
 						type="text" 
-						value={appState.currentDocument.config.pubDate || ''} 
+						value={docStore.currentDocument.config.pubDate || ''} 
 						oninput={(e) => handleInput('pubDate', e)}
 						placeholder="YYYY-MM-DD"
 					/>
@@ -54,7 +55,7 @@ function handleInput(key: string, e: Event) {
 					<textarea 
 						id="description" 
 						rows="3" 
-						value={appState.currentDocument.config.description || ''} 
+						value={docStore.currentDocument.config.description || ''} 
 						oninput={(e) => handleInput('description', e)}
 						placeholder="Short summary of the post..."
 					></textarea>
@@ -65,7 +66,7 @@ function handleInput(key: string, e: Event) {
 					<input 
 						id="tags" 
 						type="text" 
-						value={(appState.currentDocument.config.tags || []).join(', ')} 
+						value={(docStore.currentDocument.config.tags || []).join(', ')} 
 						oninput={(e) => handleInput('tags', e)}
 						placeholder="tech, writing, zen"
 					/>

@@ -1,9 +1,8 @@
 <script lang="ts">
 import '../app.css';
 import { onMount } from 'svelte';
-// We might have an issue importing $lib depending on SvelteKit's configuration.
-// We'll import relatively or standard lib depending on setup.
-import { appState } from '$lib/state.svelte';
+import { docStore } from '$lib/doc-store.svelte';
+import { uiState } from '$lib/ui-state.svelte';
 
 let { children } = $props();
 
@@ -13,22 +12,23 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 	const key = event.key.toLowerCase();
 	if (mod1 && mod2 && key === 'n') {
 		event.preventDefault();
-		appState.createNew();
+		docStore.createNew();
 	}
 	if (mod1 && key === ' ') {
 		event.preventDefault();
-		appState.toggleZenMode();
+		uiState.toggleZenMode();
 	}
 }
 
 onMount(() => {
-	appState.init();
+	uiState.initTheme();
+	docStore.init();
 });
 </script>
 
 <svelte:window onkeydown={handleGlobalShortcut} />
 
-{#if appState.documents.length > 0}
+{#if docStore.documents.length > 0}
 	<div class="app-layout">
 		{@render children()}
 	</div>

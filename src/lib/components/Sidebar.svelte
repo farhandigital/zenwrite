@@ -9,21 +9,22 @@ import {
 	Sun,
 	Trash,
 } from 'lucide-svelte';
-import { appState } from '$lib/state.svelte';
+import { docStore } from '$lib/doc-store.svelte';
+import { uiState } from '$lib/ui-state.svelte';
 
 function handleFileClick(id: string) {
-	appState.currentDocId = id;
+	docStore.currentDocId = id;
 	// On mobile, maybe close sidebar
 }
 
 function createNew() {
-	appState.createNew();
+	docStore.createNew();
 }
 
 function deleteDoc(id: string, event: MouseEvent) {
 	event.stopPropagation();
 	if (confirm('Are you sure you want to delete this document?')) {
-		appState.deleteDoc(id);
+		docStore.deleteDoc(id);
 	}
 }
 
@@ -42,7 +43,7 @@ function formatDate(ts: number): string {
 }
 </script>
 
-<aside class="sidebar frosted-glass" class:open={appState.sidebarOpen} class:zen={appState.zenMode}>
+<aside class="sidebar frosted-glass" class:open={uiState.sidebarOpen} class:zen={uiState.zenMode}>
 	<!-- Inner wrapper stays at fixed 280px so content doesn't squish during the
 	     width-collapse animation. overflow:hidden on the aside clips it cleanly. -->
 	<div class="sidebar-inner">
@@ -52,8 +53,8 @@ function formatDate(ts: number): string {
 				<button class="icon-btn" onclick={createNew} title="New Note">
 					<Plus size={18} />
 				</button>
-				<button class="icon-btn" onclick={() => appState.toggleTheme()} title="Toggle Theme">
-					{#if appState.theme === 'dark'}
+				<button class="icon-btn" onclick={() => uiState.toggleTheme()} title="Toggle Theme">
+					{#if uiState.theme === 'dark'}
 						<Sun size={18} />
 					{:else}
 						<Moon size={18} />
@@ -63,10 +64,10 @@ function formatDate(ts: number): string {
 		</div>
 
 		<div class="file-list">
-			{#each appState.documents as doc (doc.id)}
+			{#each docStore.documents as doc (doc.id)}
 				<div 
 					class="file-item" 
-					class:active={appState.currentDocId === doc.id}
+					class:active={docStore.currentDocId === doc.id}
 					onclick={() => handleFileClick(doc.id)}
 					onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
 					role="button"
@@ -89,15 +90,15 @@ function formatDate(ts: number): string {
 		</div>
 
 		<div class="sidebar-footer">
-			<button class="menu-item" onclick={() => appState.tocOpen = !appState.tocOpen}>
+			<button class="menu-item" onclick={() => uiState.tocOpen = !uiState.tocOpen}>
 				<List size={18} />
 				<span>Table of Contents</span>
 			</button>
-			<button class="menu-item" onclick={() => appState.settingsOpen = !appState.settingsOpen}>
+			<button class="menu-item" onclick={() => uiState.settingsOpen = !uiState.settingsOpen}>
 				<Settings size={18} />
 				<span>Frontmatter</span>
 			</button>
-			<button class="menu-item zen-toggle" onclick={() => appState.toggleZenMode()} title="Enter Zen Mode">
+			<button class="menu-item zen-toggle" onclick={() => uiState.toggleZenMode()} title="Enter Zen Mode">
 				<Focus size={18} />
 				<span>Zen Mode</span>
 			</button>

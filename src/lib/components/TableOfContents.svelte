@@ -1,6 +1,7 @@
 <script lang="ts">
 import { X } from 'lucide-svelte';
-import { appState } from '$lib/state.svelte';
+import { docStore } from '$lib/doc-store.svelte';
+import { uiState } from '$lib/ui-state.svelte';
 
 interface Heading {
 	level: number;
@@ -9,7 +10,7 @@ interface Heading {
 }
 
 let headings: Heading[] = $derived.by(() => {
-	const content = appState.currentDocument?.content || '';
+	const content = docStore.currentDocument?.content || '';
 	const regex = /^(#{1,6})\s+(.+)/gm;
 	const found: Heading[] = [];
 	for (const match of content.matchAll(regex)) {
@@ -23,15 +24,15 @@ let headings: Heading[] = $derived.by(() => {
 });
 
 function scrollToHeading(index: number) {
-	appState.scrollToIndex = index;
+	uiState.scrollToIndex = index;
 	// On mobile, close the panel after navigating
 	if (window.innerWidth <= 768) {
-		appState.tocOpen = false;
+		uiState.tocOpen = false;
 	}
 }
 
 function close() {
-	appState.tocOpen = false;
+	uiState.tocOpen = false;
 }
 </script>
 
@@ -44,8 +45,8 @@ function close() {
 -->
 <aside
 	class="toc-panel frosted-glass"
-	class:open={appState.tocOpen}
-	class:zen={appState.zenMode}
+	class:open={uiState.tocOpen}
+	class:zen={uiState.zenMode}
 	aria-label="Table of Contents"
 >
 	<div class="toc-inner">
