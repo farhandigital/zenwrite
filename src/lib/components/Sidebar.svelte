@@ -78,6 +78,11 @@ function formatDate(ts: number): string {
 						<div class="file-meta">
 							<span class="file-title">{getTitle(doc.title)}</span>
 							<span class="file-date">{formatDate(doc.createdAt)}</span>
+							<span class="file-tags">
+								{#each doc.config.tags as tag }
+									<span class="tag">{tag}</span>
+								{/each}
+							</span>
 						</div>
 					</div>
 					<div class="file-item-actions">
@@ -208,6 +213,33 @@ function formatDate(ts: number): string {
 		opacity: 0.7;
 		letter-spacing: 0.01em;
 	}
+	
+	.file-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 2px;
+        
+        & .tag {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            background-color: var(--border);
+            padding: 2px 8px;
+            border-radius: 99px;
+            border: 1px solid transparent;
+            transition: background-color 0.2s, color 0.2s;
+        }
+    }
+
+    /* Make the tags pop beautifully when the file is selected */
+    .file-item.active .file-tags .tag {
+        background-color: var(--surface);
+        color: var(--accent);
+        border-color: var(--accent-glow);
+    }
 
 	:global(.file-icon) {
 		color: var(--text-muted);
