@@ -2,8 +2,18 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
-import { Check, Copy, Maximize2, Menu, Minimize2, X } from 'lucide-svelte';
+import {
+	Check,
+	ChevronDown,
+	ChevronRight,
+	Copy,
+	Maximize2,
+	Menu,
+	Minimize2,
+	X,
+} from 'lucide-svelte';
 import { untrack } from 'svelte';
+import { slide } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
 import {
 	customHighlightStyle,
@@ -16,6 +26,7 @@ import { uiState } from '$lib/ui-state.svelte';
 let titleInput: HTMLTextAreaElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
 let editorView: EditorView | undefined;
+let isFrontmatterOpen = $state(false);
 let lastAutoScrollTime = 0;
 const autoScrollCooldown = 80;
 
@@ -304,58 +315,73 @@ $effect(() => {
 				<span>Created {formatDate(docStore.currentDocument.createdAt)}</span>
 				<span class="meta-divider">·</span>
 				<span>Updated {formatDate(docStore.currentDocument.updatedAt)}</span>
+				<span class="meta-divider">·</span>
+				<button 
+					class="fm-toggle-btn" 
+					onclick={() => isFrontmatterOpen = !isFrontmatterOpen}
+					title="Toggle Properties"
+				>
+					{#if isFrontmatterOpen}
+						<ChevronDown size={14} />
+					{:else}
+						<ChevronRight size={14} />
+					{/if}
+					<span>Properties</span>
+				</button>
 			</div>
 			
-			<div class="frontmatter-container" class:zen={uiState.zenMode}>
-				<div class="fm-row">
-					<div class="fm-label">Description</div>
-					<textarea 
-						class="fm-value-input fm-textarea" 
-						rows="1" 
-						value={docStore.currentDocument.config.description || ''} 
-						oninput={(e) => {
-							handleInput('description', e);
-							const target = e.target as HTMLTextAreaElement;
-							target.style.height = 'auto';
-							target.style.height = `${target.scrollHeight}px`;
-						}}
-						placeholder="Add a short description..."
-					></textarea>
-				</div>
-				<div class="fm-row">
-					<div class="fm-label">Publish Date</div>
-					<input 
-						type="text" 
-						class="fm-value-input" 
-						value={docStore.currentDocument.config.pubDate || ''} 
-						oninput={(e) => handleInput('pubDate', e)}
-						placeholder="YYYY-MM-DD"
-					/>
-				</div>
-				<div class="fm-row">
-					<div class="fm-label">Tags</div>
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
-						{#each (docStore.currentDocument.config.tags || []) as tag, i}
-							<span class="fm-tag">
-								{tag}
-								<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
-									<X size={12} strokeWidth={2.5}/>
-								</button>
-							</span>
-						{/each}
+			{#if isFrontmatterOpen}
+				<div class="frontmatter-container" class:zen={uiState.zenMode} transition:slide={{ duration: 200 }}>
+					<div class="fm-row">
+						<div class="fm-label">Description</div>
+						<textarea 
+							class="fm-value-input fm-textarea" 
+							rows="1" 
+							value={docStore.currentDocument.config.description || ''} 
+							oninput={(e) => {
+								handleInput('description', e);
+								const target = e.target as HTMLTextAreaElement;
+								target.style.height = 'auto';
+								target.style.height = `${target.scrollHeight}px`;
+							}}
+							placeholder="Add a short description..."
+						></textarea>
+					</div>
+					<div class="fm-row">
+						<div class="fm-label">Publish Date</div>
 						<input 
-							id="fm-tags-input" 
 							type="text" 
-							class="fm-tag-input"
-							onkeydown={handleTagKeydown}
-							oninput={handleTagInput}
-							placeholder={(docStore.currentDocument.config.tags || []).length === 0 ? "Add tags..." : ""}
+							class="fm-value-input" 
+							value={docStore.currentDocument.config.pubDate || ''} 
+							oninput={(e) => handleInput('pubDate', e)}
+							placeholder="YYYY-MM-DD"
 						/>
 					</div>
+					<div class="fm-row">
+						<div class="fm-label">Tags</div>
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
+							{#each (docStore.currentDocument.config.tags || []) as tag, i}
+								<span class="fm-tag">
+									{tag}
+									<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
+										<X size={12} strokeWidth={2.5}/>
+									</button>
+								</span>
+							{/each}
+							<input 
+								id="fm-tags-input" 
+								type="text" 
+								class="fm-tag-input"
+								onkeydown={handleTagKeydown}
+								oninput={handleTagInput}
+								placeholder={(docStore.currentDocument.config.tags || []).length === 0 ? "Add tags..." : ""}
+							/>
+						</div>
+					</div>
 				</div>
-			</div>
+			{/if}
 			
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
@@ -520,6 +546,30 @@ $effect(() => {
 
 	.meta-divider {
 		opacity: 0.5;
+	}
+
+	.fm-toggle-btn {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		background: transparent;
+		border: none;
+		color: var(--text-muted);
+		font-family: inherit;
+		font-size: 0.78rem;
+		font-weight: 500;
+		cursor: pointer;
+		opacity: 0.7;
+		padding: 2px 6px;
+		border-radius: 4px;
+		transition: all 0.2s;
+		letter-spacing: 0.01em;
+	}
+
+	.fm-toggle-btn:hover {
+		opacity: 1;
+		background: rgba(128, 128, 128, 0.1);
+		color: var(--text);
 	}
 
 	.frontmatter-container {
