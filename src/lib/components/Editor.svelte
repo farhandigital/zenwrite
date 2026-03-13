@@ -26,6 +26,7 @@ function autoResizeTitle() {
 	titleInput.style.height = `${titleInput.scrollHeight}px`;
 }
 
+// Replace with field-sizing CSS property when it's supported by all major browsers (currently only Firefox hasn't)
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLTextAreaElement;
 	docStore.updateCurrent({ title: target.value });
