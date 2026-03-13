@@ -12,15 +12,68 @@ function handleInput(key: string, e: Event) {
 	const val = target.value;
 	if (docStore.currentDocument) {
 		const config = { ...docStore.currentDocument.config };
-		if (key === 'tags') {
-			config.tags = val
-				.split(',')
-				.map((t) => t.trim())
-				.filter(Boolean);
-		} else {
-			config[key] = val;
-		}
+		config[key] = val;
 		docStore.updateCurrent({ config });
+	}
+}
+
+function removeTag(index: number) {
+	if (docStore.currentDocument) {
+		const config = { ...docStore.currentDocument.config };
+		const tags = [...(config.tags || [])];
+		tags.splice(index, 1);
+		config.tags = tags;
+		docStore.updateCurrent({ config });
+	}
+}
+
+function handleTagKeydown(e: KeyboardEvent) {
+	const target = e.target as HTMLInputElement;
+	if (e.key === ',' || e.key === 'Enter') {
+		e.preventDefault();
+		const val = target.value.trim();
+		if (val && docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			if (!tags.includes(val)) {
+				tags.push(val);
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+			target.value = '';
+		}
+	} else if (e.key === 'Backspace' && target.value === '') {
+		if (docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			if (tags.length > 0) {
+				tags.pop();
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+		}
+	}
+}
+
+function handleTagInput(e: Event) {
+	const target = e.target as HTMLInputElement;
+	if (target.value.includes(',')) {
+		const newTags = target.value
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
+		if (docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			for (const nt of newTags) {
+				if (!tags.includes(nt)) {
+					tags.push(nt);
+				}
+			}
+			config.tags = tags;
+			docStore.updateCurrent({ config });
+		}
+		target.value = '';
 	}
 }
 </script>
@@ -63,13 +116,29 @@ function handleInput(key: string, e: Event) {
 
 				<div class="form-group">
 					<label for="tags">Tags (comma separated)</label>
-					<input 
-						id="tags" 
-						type="text" 
-						value={(docStore.currentDocument.config.tags || []).join(', ')} 
-						oninput={(e) => handleInput('tags', e)}
-						placeholder="tech, writing, zen"
-					/>
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div 
+						class="tags-input-container" 
+						onclick={() => document.getElementById('tags')?.focus()}
+					>
+						{#each (docStore.currentDocument.config.tags || []) as tag, i}
+							<span class="tag">
+								{tag}
+								<button type="button" class="tag-remove" onclick={() => removeTag(i)} aria-label="Remove tag">
+									<X size={12} />
+								</button>
+							</span>
+						{/each}
+						<input 
+							id="tags" 
+							type="text" 
+							class="tag-input"
+							onkeydown={handleTagKeydown}
+							oninput={handleTagInput}
+							placeholder={(docStore.currentDocument.config.tags || []).length === 0 ? "tech, writing, zen" : ""}
+						/>
+					</div>
 				</div>
                 
 				<div class="info-box">
@@ -161,6 +230,68 @@ function handleInput(key: string, e: Event) {
 	input:focus, textarea:focus {
 		border-color: var(--accent);
 		outline: none;
+	}
+
+	.tags-input-container {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		padding: 6px 10px;
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		min-height: 42px;
+		align-items: center;
+		transition: border-color 0.2s;
+		cursor: text;
+	}
+
+	.tags-input-container:focus-within {
+		border-color: var(--accent);
+	}
+
+	.tag {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		background: var(--accent-glow);
+		color: var(--accent);
+		padding: 4px 8px;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		font-weight: 500;
+		border: 1px solid rgba(59, 130, 246, 0.3);
+	}
+
+	.tag-remove {
+		background: transparent;
+		border: none;
+		color: currentColor;
+		padding: 0;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		opacity: 0.7;
+		transition: opacity 0.2s;
+	}
+
+	.tag-remove:hover {
+		opacity: 1;
+	}
+
+	.tag-input {
+		flex: 1;
+		min-width: 80px;
+		border: none;
+		background: transparent;
+		padding: 4px 0;
+		font-size: 0.95rem;
+		color: var(--text);
+	}
+
+	.tag-input:focus {
+		outline: none;
+		border-color: transparent;
 	}
 
 	.icon-btn {
