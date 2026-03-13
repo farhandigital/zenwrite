@@ -2,7 +2,7 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
-import { Check, Copy, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
+import { Check, Copy, Maximize2, Menu, Minimize2, X } from 'lucide-svelte';
 import { untrack } from 'svelte';
 import { docStore } from '$lib/doc-store.svelte';
 import {
@@ -35,6 +35,78 @@ function handleTitleKeydown(e: KeyboardEvent) {
 	if (e.key === 'Enter' && editorView) {
 		e.preventDefault();
 		editorView.focus();
+	}
+}
+
+function handleInput(key: string, e: Event) {
+	const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+	const val = target.value;
+	if (docStore.currentDocument) {
+		const config = { ...docStore.currentDocument.config };
+		config[key] = val;
+		docStore.updateCurrent({ config });
+	}
+}
+
+function removeTag(index: number, e: MouseEvent) {
+	e.stopPropagation();
+	e.preventDefault();
+	if (docStore.currentDocument) {
+		const config = { ...docStore.currentDocument.config };
+		const tags = [...(config.tags || [])];
+		tags.splice(index, 1);
+		config.tags = tags;
+		docStore.updateCurrent({ config });
+	}
+}
+
+function handleTagKeydown(e: KeyboardEvent) {
+	const target = e.target as HTMLInputElement;
+	if (e.key === ',' || e.key === 'Enter') {
+		e.preventDefault();
+		const val = target.value.trim();
+		if (val && docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			if (!tags.includes(val)) {
+				tags.push(val);
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+			target.value = '';
+		}
+	} else if (e.key === 'Backspace' && target.value === '') {
+		if (docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			if (tags.length > 0) {
+				tags.pop();
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+		}
+	}
+}
+
+function handleTagInput(e: Event) {
+	const target = e.target as HTMLInputElement;
+	if (target.value.includes(',')) {
+		const newTags = target.value
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
+		if (docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags || [])];
+			for (const nt of newTags) {
+				if (!tags.includes(nt)) {
+					tags.push(nt);
+				}
+			}
+			config.tags = tags;
+			docStore.updateCurrent({ config });
+		}
+		target.value = '';
 	}
 }
 
@@ -234,6 +306,57 @@ $effect(() => {
 				<span>Updated {formatDate(docStore.currentDocument.updatedAt)}</span>
 			</div>
 			
+			<div class="frontmatter-container" class:zen={uiState.zenMode}>
+				<div class="fm-row">
+					<div class="fm-label">Description</div>
+					<textarea 
+						class="fm-value-input fm-textarea" 
+						rows="1" 
+						value={docStore.currentDocument.config.description || ''} 
+						oninput={(e) => {
+							handleInput('description', e);
+							const target = e.target as HTMLTextAreaElement;
+							target.style.height = 'auto';
+							target.style.height = `${target.scrollHeight}px`;
+						}}
+						placeholder="Add a short description..."
+					></textarea>
+				</div>
+				<div class="fm-row">
+					<div class="fm-label">Publish Date</div>
+					<input 
+						type="text" 
+						class="fm-value-input" 
+						value={docStore.currentDocument.config.pubDate || ''} 
+						oninput={(e) => handleInput('pubDate', e)}
+						placeholder="YYYY-MM-DD"
+					/>
+				</div>
+				<div class="fm-row">
+					<div class="fm-label">Tags</div>
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
+						{#each (docStore.currentDocument.config.tags || []) as tag, i}
+							<span class="fm-tag">
+								{tag}
+								<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
+									<X size={12} strokeWidth={2.5}/>
+								</button>
+							</span>
+						{/each}
+						<input 
+							id="fm-tags-input" 
+							type="text" 
+							class="fm-tag-input"
+							onkeydown={handleTagKeydown}
+							oninput={handleTagInput}
+							placeholder={(docStore.currentDocument.config.tags || []).length === 0 ? "Add tags..." : ""}
+						/>
+					</div>
+				</div>
+			</div>
+			
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
 	{:else}
@@ -396,6 +519,142 @@ $effect(() => {
 	}
 
 	.meta-divider {
+		opacity: 0.5;
+	}
+
+	.frontmatter-container {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin-top: 24px;
+		margin-bottom: 24px;
+		padding-top: 24px;
+		border-top: 1px dashed var(--border);
+		transition: opacity 0.4s ease;
+	}
+
+	.frontmatter-container.zen {
+		opacity: 0;
+		pointer-events: none;
+		height: 0;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		border: none;
+	}
+
+	.fm-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 16px;
+		min-height: 32px;
+	}
+
+	.fm-label {
+		width: 130px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		height: 32px;
+		font-size: 0.85rem;
+		font-weight: 500;
+		color: var(--text-muted);
+		opacity: 0.7;
+		padding-left: 8px;
+	}
+
+	.fm-value-input, .fm-tags-wrapper {
+		flex: 1;
+		font-family: inherit;
+		font-size: 0.9rem;
+		color: var(--text);
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 6px;
+		padding: 6px 10px;
+		transition: all 0.2s;
+	}
+	
+	.fm-value-input:hover, .fm-tags-wrapper:hover {
+		background: rgba(128, 128, 128, 0.04);
+	}
+
+	.fm-value-input:focus, .fm-tags-wrapper:focus-within {
+		background: rgba(128, 128, 128, 0.04);
+		border-color: var(--border);
+		outline: none;
+	}
+
+	.fm-textarea {
+		resize: none;
+		min-height: 32px;
+		/* Default height fits one line. We auto-resize via js. */
+	}
+
+	.fm-tags-wrapper {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		cursor: text;
+		min-height: 32px;
+	}
+
+	.fm-tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 2px 8px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 99px;
+		font-size: 0.8rem;
+		color: var(--text);
+		transition: all 0.2s;
+	}
+
+	.fm-tag:hover {
+		background: var(--accent-glow);
+		border-color: rgba(59, 130, 246, 0.3);
+		color: var(--accent);
+	}
+
+	.fm-tag-remove {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border: none;
+		color: inherit;
+		opacity: 0.5;
+		cursor: pointer;
+		padding: 0;
+		transition: opacity 0.2s;
+	}
+
+	.fm-tag-remove:hover {
+		opacity: 1;
+	}
+
+	.fm-tag-input {
+		flex: 1;
+		min-width: 80px;
+		background: transparent;
+		border: none;
+		outline: none;
+		color: var(--text);
+		font-family: inherit;
+		font-size: 0.9rem;
+		padding: 2px 0;
+	}
+
+	.fm-tag-input::placeholder {
+		color: var(--text-muted);
+		opacity: 0.5;
+	}
+	
+	.fm-value-input::placeholder {
+		color: var(--text-muted);
 		opacity: 0.5;
 	}
 

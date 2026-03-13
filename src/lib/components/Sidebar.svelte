@@ -1,14 +1,5 @@
 <script lang="ts">
-import {
-	FileText,
-	Focus,
-	List,
-	Moon,
-	Plus,
-	Settings,
-	Sun,
-	Trash,
-} from 'lucide-svelte';
+import { FileText, Focus, List, Moon, Plus, Sun, Trash } from 'lucide-svelte';
 import { docStore } from '$lib/doc-store.svelte';
 import { uiState } from '$lib/ui-state.svelte';
 
@@ -98,10 +89,6 @@ function formatDate(ts: number): string {
 			<button class="menu-item" onclick={() => uiState.tocOpen = !uiState.tocOpen}>
 				<List size={18} />
 				<span>Table of Contents</span>
-			</button>
-			<button class="menu-item" onclick={() => uiState.settingsOpen = !uiState.settingsOpen}>
-				<Settings size={18} />
-				<span>Frontmatter</span>
 			</button>
 			<button class="menu-item zen-toggle" onclick={() => uiState.toggleZenMode()} title="Enter Zen Mode">
 				<Focus size={18} />
