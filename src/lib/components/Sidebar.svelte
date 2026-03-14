@@ -6,11 +6,53 @@ import {
 	List,
 	Moon,
 	Plus,
+	Search,
 	Sun,
 	Trash,
+	X,
 } from 'lucide-svelte';
+import MiniSearch from 'minisearch';
 import { docStore } from '$lib/doc-store.svelte';
+import type { Document } from '$lib/types';
 import { uiState } from '$lib/ui-state.svelte';
+
+// --- Search ---
+
+let searchQuery = $state('');
+
+// Reactive MiniSearch index — rebuilt whenever documents change.
+const miniSearch = $derived.by(() => {
+	const ms = new MiniSearch<Document>({
+		idField: 'id',
+		fields: ['title', 'content', 'tags'],
+		storeFields: ['id'],
+		extractField: (doc: Document, field: string) => {
+			if (field === 'tags') return (doc.config.tags ?? []).join(' ');
+			return (doc as unknown as Record<string, unknown>)[field] as string;
+		},
+		searchOptions: {
+			prefix: true,
+			fuzzy: 0.2,
+			boost: { title: 3, tags: 2 },
+		},
+	});
+	ms.addAll(docStore.documents);
+	return ms;
+});
+
+const displayedDocs = $derived.by(() => {
+	const q = searchQuery.trim();
+	if (!q) return docStore.documents;
+	const hits = miniSearch.search(q);
+	const hitIds = new Set(hits.map((h) => h.id));
+	return docStore.documents.filter((d) => hitIds.has(d.id));
+});
+
+function clearSearch() {
+	searchQuery = '';
+}
+
+// --- Document actions ---
 
 function handleFileClick(id: string) {
 	docStore.currentDocId = id;
@@ -63,35 +105,59 @@ function formatDate(ts: number): string {
 			</div>
 		</div>
 
+		<!-- Search bar -->
+		<div class="search-bar">
+			<Search size={14} class="search-icon" />
+			<input
+				id="sidebar-search"
+				class="search-input"
+				type="search"
+				placeholder="Search notes…"
+				bind:value={searchQuery}
+			/>
+			{#if searchQuery}
+				<button class="clear-btn" onclick={clearSearch} title="Clear search" aria-label="Clear search">
+					<X size={12} />
+				</button>
+			{/if}
+		</div>
+
 		<div class="file-list">
-			{#each docStore.documents as doc (doc.id)}
-				<div 
-					class="file-item" 
-					class:active={docStore.currentDocId === doc.id}
-					onclick={() => handleFileClick(doc.id)}
-					onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
-					role="button"
-					tabindex="0"
-				>
-					<div class="file-item-left">
-						<FileText size={16} class="file-icon" />
-						<div class="file-meta">
-							<span class="file-title">{getTitle(doc.title)}</span>
-							<span class="file-date">{formatDate(doc.createdAt)}</span>
-							<span class="file-tags">
-								{#each doc.config.tags as tag }
-									<span class="tag">{tag}</span>
-								{/each}
-							</span>
+			{#if displayedDocs.length === 0}
+				<div class="empty-state">
+					<Search size={24} class="empty-icon" />
+					<p>No results for<br /><strong>"{searchQuery}"</strong></p>
+				</div>
+			{:else}
+				{#each displayedDocs as doc (doc.id)}
+					<div 
+						class="file-item" 
+						class:active={docStore.currentDocId === doc.id}
+						onclick={() => handleFileClick(doc.id)}
+						onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
+						role="button"
+						tabindex="0"
+					>
+						<div class="file-item-left">
+							<FileText size={16} class="file-icon" />
+							<div class="file-meta">
+								<span class="file-title">{getTitle(doc.title)}</span>
+								<span class="file-date">{formatDate(doc.createdAt)}</span>
+								<span class="file-tags">
+									{#each doc.config.tags as tag (tag)}
+										<span class="tag">{tag}</span>
+									{/each}
+								</span>
+							</div>
+						</div>
+						<div class="file-item-actions">
+							<button class="icon-btn danger" onclick={(e) => deleteDoc(doc.id, e)} title="Delete Note">
+								<Trash size={14} />
+							</button>
 						</div>
 					</div>
-					<div class="file-item-actions">
-						<button class="icon-btn danger" onclick={(e) => deleteDoc(doc.id, e)} title="Delete Note">
-							<Trash size={14} />
-						</button>
-					</div>
-				</div>
-			{/each}
+				{/each}
+			{/if}
 		</div>
 
 		<div class="sidebar-footer">
@@ -164,10 +230,101 @@ function formatDate(ts: number): string {
 		gap: 8px;
 	}
 
+	/* ---- Search bar ---- */
+	.search-bar {
+		position: relative;
+		display: flex;
+		align-items: center;
+		margin: 10px 12px 6px;
+		background: var(--border);
+		border-radius: 8px;
+		border: 1px solid transparent;
+		transition: border-color 0.2s, background 0.2s;
+
+		&:focus-within {
+			border-color: var(--accent);
+			background: var(--surface);
+		}
+	}
+
+	.search-bar :global(.search-icon) {
+		position: absolute;
+		left: 10px;
+		color: var(--text-muted);
+		pointer-events: none;
+		flex-shrink: 0;
+	}
+
+	.search-input {
+		flex: 1;
+		background: transparent;
+		border: none;
+		outline: none;
+		padding: 8px 10px 8px 32px;
+		font-size: 0.82rem;
+		color: var(--text);
+		width: 100%;
+
+		&::placeholder {
+			color: var(--text-muted);
+			opacity: 0.6;
+		}
+
+		/* Remove the native "x" clear button in webkit */
+		&::-webkit-search-cancel-button {
+			display: none;
+		}
+	}
+
+	.clear-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		margin-right: 6px;
+		border-radius: 50%;
+		color: var(--text-muted);
+		background: transparent;
+		transition: background 0.15s, color 0.15s;
+
+		&:hover {
+			background: rgba(127, 127, 127, 0.2);
+			color: var(--text);
+		}
+	}
+
+	/* ---- Empty state ---- */
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		padding: 40px 20px;
+		color: var(--text-muted);
+		text-align: center;
+	}
+
+	.empty-state :global(.empty-icon) {
+		opacity: 0.35;
+	}
+
+	.empty-state p {
+		font-size: 0.82rem;
+		line-height: 1.5;
+		opacity: 0.7;
+	}
+
+	.empty-state strong {
+		opacity: 0.9;
+	}
+
+	/* ---- File list ---- */
 	.file-list {
 		flex: 1;
 		overflow-y: auto;
-		padding: 12px;
+		padding: 6px 12px 12px;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
