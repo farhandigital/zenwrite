@@ -37,5 +37,8 @@
 		"js-yaml": "^4.1.1",
 		"lucide-svelte": "^0.576.0",
 		"marked": "^17.0.3"
+	},
+	"overrides": {
+		"vite": "^8.0.0"
 	}
 }
