@@ -79,9 +79,13 @@ export async function exportBackup(
 	const blob = await zipWriter.close();
 
 	const date = new Date().toISOString().split('T')[0];
+	let filename = `zenwrite-backup-${date}.zip`;
+	if (window.location.hostname === 'localhost') {
+		filename = `localhost-${filename}`;
+	}
 	const a = Object.assign(document.createElement('a'), {
 		href: URL.createObjectURL(blob),
-		download: `zenwrite-backup-${date}.zip`,
+		download: filename,
 	});
 	document.body.appendChild(a);
 	a.click();
