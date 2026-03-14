@@ -1,11 +1,4 @@
-import {
-	BlobReader,
-	BlobWriter,
-	TextReader,
-	TextWriter,
-	ZipReader,
-	ZipWriter,
-} from '@zip.js/zip.js';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import yaml from 'js-yaml';
 import type { Document, DocumentConfig } from './types';
 
@@ -42,26 +35,20 @@ export async function exportBackup(
 	docs: Document[],
 	getAstroExport: (doc: Document) => string,
 ): Promise<void> {
-	const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
 	const usedSlugs = new Set<string>();
-
 	const snapshot = docs.map((d) => ({ ...d }));
+	const zipPaths: Record<string, Uint8Array> = {};
 
 	// Add human-readable markdown files concurrently
-	const addJobs = snapshot.map((doc) => {
+	for (const doc of snapshot) {
 		const base = slugify(doc.title || 'untitled');
 		let slug = base;
 		let i = 1;
 		while (usedSlugs.has(slug)) slug = `${base}-${i++}`;
 		usedSlugs.add(slug);
 
-		return zipWriter.add(
-			`documents/${slug}.md`,
-			new TextReader(getAstroExport(doc)),
-		);
-	});
-
-	await Promise.all(addJobs);
+		zipPaths[`documents/${slug}.md`] = strToU8(getAstroExport(doc));
+	}
 
 	// Add manifest — this is what we use for import
 	const manifest: BackupManifest = {
@@ -71,12 +58,12 @@ export async function exportBackup(
 		documents: snapshot,
 	};
 
-	await zipWriter.add(
-		'zenwrite-backup.json',
-		new TextReader(JSON.stringify(manifest, null, 2)),
-	);
+	zipPaths['zenwrite-backup.json'] = strToU8(JSON.stringify(manifest, null, 2));
 
-	const blob = await zipWriter.close();
+	const zipped = zipSync(zipPaths);
+	const blob = new Blob([zipped as unknown as BlobPart], {
+		type: 'application/zip',
+	});
 
 	const date = new Date().toISOString().split('T')[0];
 	let filename = `zenwrite-backup-${date}.zip`;
@@ -114,17 +101,12 @@ export async function previewImport(
 	file: File,
 	existingIds: Set<string>,
 ): Promise<ImportPreview> {
-	const zipReader = new ZipReader(new BlobReader(file));
-	const entries = await zipReader.getEntries();
+	const buffer = await file.arrayBuffer();
+	const unzipped = unzipSync(new Uint8Array(buffer));
 
 	// ── Manifest path (preferred) ────────────────────────────────────────────
-	const manifestEntry = entries.find(
-		(e) => e.filename === 'zenwrite-backup.json',
-	);
-	if (manifestEntry && !manifestEntry.directory) {
-		const text = await manifestEntry.getData(new TextWriter());
-		await zipReader.close();
-
+	if (unzipped['zenwrite-backup.json']) {
+		const text = strFromU8(unzipped['zenwrite-backup.json']);
 		const manifest = JSON.parse(text) as BackupManifest;
 		const docs = manifest.documents ?? [];
 
@@ -139,19 +121,14 @@ export async function previewImport(
 	}
 
 	// ── Markdown fallback (plain .md zips) ───────────────────────────────────
-	const mdEntries = entries.filter(
-		(e): e is typeof e & { directory: false } =>
-			e.filename.endsWith('.md') && !e.directory,
+	const mdEntries = Object.entries(unzipped).filter(([filename]) =>
+		filename.endsWith('.md'),
 	);
 
-	const docs: Document[] = await Promise.all(
-		mdEntries.map(async (entry) => {
-			const text = await entry.getData(new TextWriter());
-			return parseMdToDocument(text, entry.filename);
-		}),
-	);
-
-	await zipReader.close();
+	const docs: Document[] = mdEntries.map(([filename, data]) => {
+		const text = strFromU8(data);
+		return parseMdToDocument(text, filename);
+	});
 
 	return {
 		totalDocs: docs.length,
