@@ -13,6 +13,7 @@ import {
 } from '$lib/editor/commands';
 import { uiState } from '$lib/ui-state.svelte';
 import Frontmatter from './Frontmatter.svelte';
+import StatsBar from './StatsBar.svelte';
 
 let titleInput: HTMLTextAreaElement | undefined = $state();
 let editorContainer: HTMLDivElement | undefined = $state();
@@ -224,6 +225,8 @@ $effect(() => {
 			
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
+
+		<StatsBar />
 	{:else}
 		<div class="empty-state">
 			<h3>No document selected</h3>
