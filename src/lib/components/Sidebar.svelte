@@ -1,5 +1,14 @@
 <script lang="ts">
-import { FileText, Focus, List, Moon, Plus, Sun, Trash } from 'lucide-svelte';
+import {
+	Archive,
+	FileText,
+	Focus,
+	List,
+	Moon,
+	Plus,
+	Sun,
+	Trash,
+} from 'lucide-svelte';
 import { docStore } from '$lib/doc-store.svelte';
 import { uiState } from '$lib/ui-state.svelte';
 
@@ -93,6 +102,14 @@ function formatDate(ts: number): string {
 			<button class="menu-item zen-toggle" onclick={() => uiState.toggleZenMode()} title="Enter Zen Mode">
 				<Focus size={18} />
 				<span>Zen Mode</span>
+			</button>
+			<button
+				class="menu-item backup-btn"
+				onclick={() => uiState.backupOpen = !uiState.backupOpen}
+				title="Backup & Restore"
+			>
+				<Archive size={18} />
+				<span>Backup & Restore</span>
 			</button>
 		</div>
 	</div>
@@ -283,6 +300,11 @@ function formatDate(ts: number): string {
 	.zen-toggle:hover {
 		background: var(--accent-glow);
 		color: var(--accent);
+	}
+
+	.backup-btn:hover {
+		background: rgba(99, 102, 241, 0.08);
+		color: #6366f1;
 	}
 
 	.icon-btn {

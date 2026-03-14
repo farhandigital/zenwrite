@@ -94,6 +94,50 @@ export class DocStore {
 		}
 	};
 
+	/**
+	 * Import a list of documents into the store.
+	 *
+	 * @param docs           Documents parsed from a backup zip.
+	 * @param overwrite      When true, existing documents with matching IDs are
+	 *                       overwritten. When false (default), duplicates are skipped.
+	 * @returns              The number of documents actually written to the DB.
+	 */
+	importDocuments = async (
+		docs: Document[],
+		overwrite: boolean,
+	): Promise<number> => {
+		const existingIds = new Set(this.documents.map((d) => d.id));
+		const toWrite = overwrite
+			? docs
+			: docs.filter((d) => !existingIds.has(d.id));
+
+		let saved = 0;
+		for (const doc of toWrite) {
+			try {
+				await saveDocument({ ...doc, updatedAt: Date.now() });
+				saved++;
+			} catch (err) {
+				console.error('[zenwrite] Failed to import document:', doc.id, err);
+			}
+		}
+
+		if (saved > 0) {
+			// Reload from DB so the list is authoritative and sorted
+			try {
+				const allDocs = await getDocuments();
+				this.documents = allDocs.sort((a, b) => b.updatedAt - a.updatedAt);
+				// Keep current doc selected if it still exists, else pick the newest
+				if (!this.documents.find((d) => d.id === this.currentDocId)) {
+					this.currentDocId = this.documents[0]?.id ?? null;
+				}
+			} catch (err) {
+				console.error('[zenwrite] Failed to reload after import:', err);
+			}
+		}
+
+		return saved;
+	};
+
 	getAstroExport(doc: Document): string {
 		const clonedConfig = structuredClone($state.snapshot(doc.config));
 

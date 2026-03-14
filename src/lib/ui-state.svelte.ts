@@ -4,6 +4,7 @@ export class UiState {
 	sidebarOpen = $state(false);
 	tocOpen = $state(false);
 	settingsOpen = $state(false);
+	backupOpen = $state(false);
 	zenMode = $state(false);
 	scrollToIndex: number | null = $state(null);
 
