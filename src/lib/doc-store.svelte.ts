@@ -178,6 +178,44 @@ export class DocStore {
 		}, 400);
 	};
 
+	/**
+	 * Switch to a different document, flushing any pending saves and creating
+	 * a version checkpoint for the document being abandoned. This naturally
+	 * captures session boundaries—the most reliable "I lost my work" recovery point.
+	 */
+	switchDocument = async (newDocId: string) => {
+		// If already on this document, no-op
+		if (this.currentDocId === newDocId) {
+			return;
+		}
+
+		// Flush pending save for current document (if any) and trigger version save
+		if (this.currentDocId !== null) {
+			if (this.saveTimer !== null) {
+				clearTimeout(this.saveTimer);
+				this.saveTimer = null;
+			}
+			const current = this.documents.find((d) => d.id === this.currentDocId);
+			if (current) {
+				const snapshot = $state.snapshot(current);
+				try {
+					await saveDocument(snapshot);
+					broadcastSave(current.id);
+					// Create a version checkpoint when abandoning this document
+					await versionStore.onDocumentSaved(snapshot);
+				} catch (err) {
+					console.error(
+						'[zenwrite] Failed to flush save on document switch:',
+						err,
+					);
+				}
+			}
+		}
+
+		// Switch to new document
+		this.currentDocId = newDocId;
+	};
+
 	deleteDoc = async (id: string) => {
 		try {
 			await deleteDocument(id);

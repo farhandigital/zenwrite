@@ -56,7 +56,7 @@ function clearSearch() {
 // --- Document actions ---
 
 function handleFileClick(id: string) {
-	docStore.currentDocId = id;
+	docStore.switchDocument(id);
 	// On mobile, maybe close sidebar
 }
 
