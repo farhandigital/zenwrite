@@ -1,151 +1,123 @@
 #!/usr/bin/env bun
+
 /**
  * Post-build headers writer + CSP hash injector.
  *
- * Reads scripts/_headers.source — a human-readable template that supports:
- *   - Backslash line continuation (\) to split long header values across lines
- *   - # comment lines (stripped from the final output)
- *   - {{CSP_SCRIPT_HASHES}} placeholder for build-time inline script hashes
+ * Reads scripts/_headers.yaml — a structured YAML file describing routes and
+ * headers. Supports three header value formats:
  *
- * Then:
- *   1. Processes line continuations into single lines
- *   2. Strips comment lines
- *   3. Computes SHA-256 hashes of all inline <script> blocks in build/index.html
- *   4. Replaces {{CSP_SCRIPT_HASHES}} with the computed hashes
- *   5. Writes the final result to build/_headers for Cloudflare Pages
+ *   Content-Security-Policy  — object of directive → source[] | true (flag-only)
+ *   Permissions-Policy       — object of feature   → allowlist[]
+ *   Everything else          — plain string (passed through as-is)
+ *
+ * Deletion headers (Cloudflare Pages "! Header-Name" syntax) are represented
+ * by a null YAML value, e.g. `"! Access-Control-Allow-Origin": ~`.
+ *
+ * {{CSP_SCRIPT_HASHES}} in any source list is replaced at build time with the
+ * SHA-256 hashes of all inline <script> blocks found in build/index.html.
  */
 
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { load } from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const SOURCE_FILE = resolve(__dirname, '_headers.source');
+const CONFIG_FILE = resolve(__dirname, '_headers.yaml');
 const BUILD_DIR = 'build';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type CspValue = Record<string, string[] | true>;
+type PermissionsValue = Record<string, string[]>;
+
+interface RouteConfig {
+	path: string;
+	headers: Record<string, string | CspValue | PermissionsValue | null>;
+}
 
 // ─── SHA-256 helper ───────────────────────────────────────────────────────────
 
-function sha256(content) {
+function sha256(content: string): string {
 	return `'sha256-${createHash('sha256').update(content).digest('base64')}'`;
 }
 
-// ─── Source file processor ────────────────────────────────────────────────────
+// ─── Header value serializers ─────────────────────────────────────────────────
 
-/**
- * Processes the _headers.source file into a valid Cloudflare Pages _headers
- * string by:
- *   - Stripping comment lines (lines whose trimmed content starts with #)
- *   - Joining backslash continuation lines into single lines
- *   - Collapsing multiple consecutive blank lines into one
- *
- * Continuation rules:
- *   A line ending with \ (ignoring trailing whitespace) continues on the next
- *   non-comment line. The backslash and all leading whitespace on the
- *   continuation are stripped; the pieces are joined with a single space.
- *
- * Example source:
- *   Content-Security-Policy: \
- *     default-src 'none'; \
- *     script-src 'self';
- *
- * Becomes:
- *   Content-Security-Policy: default-src 'none'; script-src 'self';
- */
-function processSource(raw) {
-	const lines = raw.split('\n');
-	const output = [];
-	let i = 0;
+function serializeCSP(directives: CspValue): string {
+	return Object.entries(directives)
+		.map(([directive, sources]) =>
+			sources === true
+				? directive // flag-only, e.g. upgrade-insecure-requests
+				: `${directive} ${sources.join(' ')}`,
+		)
+		.join('; ');
+}
 
-	while (i < lines.length) {
-		const line = lines[i];
+function serializePermissionsPolicy(features: PermissionsValue): string {
+	return Object.entries(features)
+		.map(([feature, allowlist]) =>
+			allowlist.length === 0
+				? `${feature}=()`
+				: `${feature}=(${allowlist.join(' ')})`,
+		)
+		.join(', ');
+}
 
-		// Skip comment-only lines (allows # anywhere in the indented block)
-		if (line.trim().startsWith('#')) {
-			i++;
-			continue;
-		}
-
-		const rightTrimmed = line.trimEnd();
-
-		if (rightTrimmed.endsWith('\\')) {
-			// Start accumulating a continuation sequence.
-			// Remove the trailing backslash (and any whitespace before it).
-			let acc = rightTrimmed.slice(0, -1).trimEnd();
-			i++;
-
-			while (i < lines.length) {
-				const next = lines[i];
-
-				// Skip comment lines embedded within a continuation block
-				if (next.trim().startsWith('#')) {
-					i++;
-					continue;
-				}
-
-				const nextTrimmed = next.trim();
-
-				if (nextTrimmed.endsWith('\\')) {
-					// Another continuation — strip leading whitespace and backslash
-					acc += ' ' + nextTrimmed.slice(0, -1).trimEnd();
-					i++;
-				} else {
-					// Final line of this continuation
-					acc += ' ' + nextTrimmed;
-					i++;
-					break;
-				}
-			}
-
-			output.push(acc);
-		} else {
-			output.push(rightTrimmed);
-			i++;
-		}
-	}
-
-	// Collapse consecutive blank lines into a single blank line
-	const collapsed = [];
-	let prevBlank = false;
-	for (const line of output) {
-		const isBlank = line.trim() === '';
-		if (isBlank && prevBlank) continue;
-		collapsed.push(line);
-		prevBlank = isBlank;
-	}
-
-	return collapsed.join('\n');
+function serializeValue(
+	name: string,
+	value: string | CspValue | PermissionsValue,
+): string {
+	if (name === 'Content-Security-Policy')
+		return serializeCSP(value as CspValue);
+	if (name === 'Permissions-Policy')
+		return serializePermissionsPolicy(value as PermissionsValue);
+	return String(value);
 }
 
 // ─── Inline script hashes from index.html ────────────────────────────────────
 
 const html = readFileSync(`${BUILD_DIR}/index.html`, 'utf-8');
+const scriptHashes: string[] = [];
 
-const scriptHashes = [];
 for (const match of html.matchAll(
 	/<script(?![^>]*\bsrc\b)[^>]*>([\s\S]*?)<\/script>/gi,
 )) {
 	const content = match[1];
-	if (content.trim()) {
-		scriptHashes.push(sha256(content));
-	}
+	if (content.trim()) scriptHashes.push(sha256(content));
 }
 
 console.log('  Inline script hashes:', scriptHashes);
 
-// ─── Build the final _headers ─────────────────────────────────────────────────
+// ─── Parse config and emit _headers ──────────────────────────────────────────
 
-const source = readFileSync(SOURCE_FILE, 'utf-8');
-let headers = processSource(source);
+const routes = load(readFileSync(CONFIG_FILE, 'utf-8')) as RouteConfig[];
+const lines: string[] = [];
 
-// Inject computed hashes into the CSP placeholder.
-// If there are no hashes, remove the placeholder and its preceding space cleanly.
-if (scriptHashes.length > 0) {
-	headers = headers.replace('{{CSP_SCRIPT_HASHES}}', scriptHashes.join(' '));
-} else {
-	headers = headers.replace(' {{CSP_SCRIPT_HASHES}}', '');
+for (const { path, headers } of routes) {
+	lines.push(path);
+
+	for (const [name, value] of Object.entries(headers)) {
+		if (value === null || value === undefined) {
+			// Deletion directive — emit bare name (e.g. "! Access-Control-Allow-Origin")
+			lines.push(`  ${name}`);
+			continue;
+		}
+
+		let serialized = serializeValue(name, value);
+
+		// Inject computed hashes, or cleanly remove the placeholder if there are none
+		serialized =
+			scriptHashes.length > 0
+				? serialized.replace('{{CSP_SCRIPT_HASHES}}', scriptHashes.join(' '))
+				: serialized.replace(' {{CSP_SCRIPT_HASHES}}', '');
+
+		lines.push(`  ${name}: ${serialized}`);
+	}
+
+	lines.push(''); // blank line between route blocks
 }
 
-writeFileSync(`${BUILD_DIR}/_headers`, headers);
+writeFileSync(`${BUILD_DIR}/_headers`, lines.join('\n'));
 console.log(`✓ _headers written to ${BUILD_DIR}/_headers`);
