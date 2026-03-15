@@ -174,6 +174,26 @@ $effect(() => {
 	}
 });
 
+// ─── Update editor when document content changes (e.g., after restore) ──────
+
+$effect(() => {
+	if (editorView && docStore.currentDocument) {
+		const newContent = docStore.currentDocument.content;
+		untrack(() => {
+			const currentContent = editorView!.state.doc.toString();
+			if (currentContent !== newContent) {
+				editorView!.dispatch({
+					changes: {
+						from: 0,
+						to: currentContent.length,
+						insert: newContent,
+					},
+				});
+			}
+		});
+	}
+});
+
 $effect(() => {
 	if (uiState.scrollToIndex !== null && editorView) {
 		const pos = uiState.scrollToIndex;
