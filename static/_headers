@@ -2,7 +2,20 @@
   # ──────────────────────────────────────────────
   # Content Security Policy
   # ──────────────────────────────────────────────
-  Content-Security-Policy: default-src 'none'; script-src 'self' https://www.statcounter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https://c.statcounter.com; worker-src blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;
+Content-Security-Policy:
+default-src 'none';
+script-src 'self' https://www.statcounter.com
+ 'sha256-mcJUxkdLH4SSlbjLo/SOqJNDEbC4RCI4owI6cEht+Bo='
+ 'sha256-gZ8AKmVTOR3Rb/g+VxpCzROTPnXrGCDzeUjUuWYjkyo=';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+img-src 'self' https://c.statcounter.com;
+worker-src blob:;
+font-src 'self' https://fonts.gstatic.com;
+connect-src 'self';
+base-uri 'none';
+form-action 'self';
+frame-ancestors 'none';
+upgrade-insecure-requests;
 
   # ──────────────────────────────────────────────
   # Transport Security
