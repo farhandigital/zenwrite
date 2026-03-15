@@ -11,7 +11,7 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
 img-src 'self' https://c.statcounter.com;
 worker-src blob:;
 font-src 'self' https://fonts.gstatic.com;
-connect-src 'self';
+connect-src 'self' https://c.statcounter.com;
 base-uri 'none';
 form-action 'self';
 frame-ancestors 'none';
