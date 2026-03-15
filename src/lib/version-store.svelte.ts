@@ -103,8 +103,16 @@ class VersionStore {
 	/**
 	 * Called by the doc-store after every successful debounced save.
 	 * Decides whether to record a new auto-version.
+	 *
+	 * @param doc - The document to potentially version
+	 * @param isDocumentSwitch - If true, bypass the char delta gate (document
+	 *   switches are semantic boundaries that warrant a checkpoint regardless
+	 *   of content size)
 	 */
-	async onDocumentSaved(doc: Document): Promise<void> {
+	async onDocumentSaved(
+		doc: Document,
+		isDocumentSwitch: boolean = false,
+	): Promise<void> {
 		const meta = this._meta.get(doc.id);
 		const now = Date.now();
 
@@ -113,8 +121,11 @@ class VersionStore {
 			? Math.abs(doc.content.length - meta.contentAtLastVersion.length)
 			: doc.content.length;
 
-		const shouldVersion =
-			timeSinceLast >= AUTO_VERSION_COOLDOWN && charDelta >= MIN_CHAR_DELTA;
+		// For document switches, bypass the char delta gate since the switch itself
+		// is the meaningful event, not the content change volume
+		const shouldVersion = isDocumentSwitch
+			? timeSinceLast >= AUTO_VERSION_COOLDOWN
+			: timeSinceLast >= AUTO_VERSION_COOLDOWN && charDelta >= MIN_CHAR_DELTA;
 
 		if (shouldVersion) {
 			await this._writeVersion(doc, null);

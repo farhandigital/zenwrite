@@ -195,14 +195,19 @@ export class DocStore {
 				clearTimeout(this.saveTimer);
 				this.saveTimer = null;
 			}
+
 			const current = this.documents.find((d) => d.id === this.currentDocId);
+
 			if (current) {
 				const snapshot = $state.snapshot(current);
+
 				try {
 					await saveDocument(snapshot);
 					broadcastSave(current.id);
+
 					// Create a version checkpoint when abandoning this document
-					await versionStore.onDocumentSaved(snapshot);
+					// Pass isDocumentSwitch=true to bypass the char delta gate
+					await versionStore.onDocumentSaved(snapshot, true);
 				} catch (err) {
 					console.error(
 						'[zenwrite] Failed to flush save on document switch:',
