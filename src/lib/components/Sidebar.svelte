@@ -3,6 +3,7 @@ import {
 	Archive,
 	FileText,
 	Focus,
+	History,
 	List,
 	Moon,
 	Plus,
@@ -164,6 +165,14 @@ function formatDate(ts: number): string {
 			<button class="menu-item" onclick={() => uiState.tocOpen = !uiState.tocOpen}>
 				<List size={18} />
 				<span>Table of Contents</span>
+			</button>
+			<button
+				class="menu-item history-btn"
+				onclick={() => uiState.versionsOpen = !uiState.versionsOpen}
+				title="Version History"
+			>
+				<History size={18} />
+				<span>Version History</span>
 			</button>
 			<button class="menu-item zen-toggle" onclick={() => uiState.toggleZenMode()} title="Enter Zen Mode">
 				<Focus size={18} />
@@ -457,6 +466,11 @@ function formatDate(ts: number): string {
 	.zen-toggle:hover {
 		background: var(--accent-glow);
 		color: var(--accent);
+	}
+
+	.history-btn:hover {
+		background: rgba(34, 197, 94, 0.08);
+		color: #16a34a;
 	}
 
 	.backup-btn:hover {

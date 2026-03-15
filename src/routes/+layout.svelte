@@ -4,6 +4,7 @@ import { onMount } from 'svelte';
 import { docStore } from '$lib/doc-store.svelte';
 import { tabPresence } from '$lib/tab-presence.svelte';
 import { uiState } from '$lib/ui-state.svelte';
+import { versionStore } from '$lib/version-store.svelte';
 
 let { children } = $props();
 
@@ -25,6 +26,7 @@ onMount(() => {
 	uiState.initTheme();
 	docStore.init();
 	tabPresence.init();
+	versionStore.init();
 });
 
 // Keep tabPresence in sync whenever the active document changes.

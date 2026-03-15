@@ -7,6 +7,7 @@ import {
 	listenSync,
 } from './sync';
 import type { Document } from './types';
+import { versionStore } from './version-store.svelte';
 
 export class DocStore {
 	documents: Document[] = $state([]);
@@ -163,8 +164,13 @@ export class DocStore {
 			const docId = this.currentDocId;
 			const latest = this.documents.find((d) => d.id === docId);
 			if (latest) {
-				saveDocument($state.snapshot(latest))
-					.then(() => broadcastSave(latest.id))
+				const snapshot = $state.snapshot(latest);
+				saveDocument(snapshot)
+					.then(() => {
+						broadcastSave(latest.id);
+						// Notify the version store so it can decide whether to auto-version.
+						versionStore.onDocumentSaved(snapshot);
+					})
 					.catch((err) => {
 						console.error('[zenwrite] Debounced save failed:', err);
 					});
@@ -176,6 +182,10 @@ export class DocStore {
 		try {
 			await deleteDocument(id);
 			broadcastDelete(id);
+			// Clean up version history for this document
+			versionStore.deleteVersionsForDoc(id).catch((err) => {
+				console.error('[zenwrite] Failed to delete doc versions:', err);
+			});
 		} catch (err) {
 			console.error('[zenwrite] Failed to delete document:', err);
 			return;
