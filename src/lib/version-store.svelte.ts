@@ -32,8 +32,8 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** 5 minutes between automatic versions for the same document. */
-const AUTO_VERSION_COOLDOWN = 5 * 60 * 1000;
+/** 1 minute between automatic versions for the same document. */
+const AUTO_VERSION_COOLDOWN = 1 * 60 * 1000;
 
 /**
  * Minimum character-count difference between current content and the content
