@@ -19,7 +19,7 @@
  * Created on user request with an optional label. Never pruned automatically.
  */
 
-import type { Document } from './types';
+import type { Document, DocumentConfig } from './types';
 import {
 	type DocumentVersion,
 	deleteVersion,
@@ -176,16 +176,16 @@ class VersionStore {
 		const fullText = [doc.title, doc.content].filter(Boolean).join(' ');
 		const wordCount =
 			fullText.trim() === '' ? 0 : fullText.trim().split(/\s+/).length;
-		const plainDoc = $state.snapshot(doc) as Document;
+		const plainConfig = $state.snapshot(doc.config) as DocumentConfig;
 		const version: DocumentVersion = {
 			id: crypto.randomUUID(),
-			docId: plainDoc.id,
-			title: plainDoc.title,
-			content: plainDoc.content,
-			config: structuredClone(plainDoc.config),
+			docId: doc.id,
+			title: doc.title,
+			content: doc.content,
+			config: structuredClone(plainConfig),
 			createdAt: Date.now(),
 			wordCount,
-			charCount: plainDoc.content.length,
+			charCount: doc.content.length,
 			label,
 		};
 

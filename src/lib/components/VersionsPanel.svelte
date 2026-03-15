@@ -14,6 +14,7 @@ import {
 } from 'lucide-svelte';
 import { slide } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
+import type { DocumentConfig } from '$lib/types';
 import { uiState } from '$lib/ui-state.svelte';
 import { versionStore } from '$lib/version-store.svelte';
 import type { DocumentVersion } from '$lib/versions-db';
@@ -81,6 +82,7 @@ async function handleDelete(v: DocumentVersion, e: MouseEvent) {
 async function handleRestore(v: DocumentVersion) {
 	if (!docStore.currentDocument || restoring) return;
 	restoring = true;
+	const plainConfig = $state.snapshot(v.config) as DocumentConfig;
 	try {
 		// Safety: checkpoint the current state first
 		await versionStore.createCheckpoint(
@@ -91,7 +93,7 @@ async function handleRestore(v: DocumentVersion) {
 		await docStore.updateCurrent({
 			title: v.title,
 			content: v.content,
-			config: structuredClone(v.config),
+			config: structuredClone(plainConfig),
 		});
 		close();
 	} finally {
