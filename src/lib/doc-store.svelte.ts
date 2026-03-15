@@ -1,5 +1,11 @@
 import yaml from 'js-yaml';
-import { deleteDocument, getDocuments, saveDocument } from './db';
+import { deleteDocument, getDocument, getDocuments, saveDocument } from './db';
+import {
+	broadcastDelete,
+	broadcastImport,
+	broadcastSave,
+	listenSync,
+} from './sync';
 import type { Document } from './types';
 
 export class DocStore {
@@ -11,6 +17,8 @@ export class DocStore {
 	get currentDocument(): Document | null {
 		return this.documents.find((d) => d.id === this.currentDocId) || null;
 	}
+
+	// ─── Initialisation ────────────────────────────────────────────────────────
 
 	init = async () => {
 		if (typeof window === 'undefined') return;
@@ -27,7 +35,93 @@ export class DocStore {
 		} else {
 			this.currentDocId = this.documents[0].id;
 		}
+
+		// ── Cross-tab data sync ────────────────────────────────────────────────
+		listenSync(async (msg) => {
+			if (msg.type === 'document-saved') {
+				await this._handleRemoteSave(msg.id);
+			} else if (msg.type === 'document-deleted') {
+				await this._handleRemoteDelete(msg.id);
+			} else if (msg.type === 'documents-imported') {
+				await this._reloadAllFromDB();
+			}
+			// Tab-presence messages are handled by tabPresence, not here.
+		});
+
+		// Full re-sync when the tab regains focus (BroadcastChannel messages are
+		// fire-and-forget; a long-backgrounded tab may have missed some).
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				this._reloadAllFromDB();
+			}
+		});
 	};
+
+	// ─── Remote-event handlers ─────────────────────────────────────────────────
+
+	private _handleRemoteSave = async (id: string): Promise<void> => {
+		// Never clobber the document currently open in this tab — the user may
+		// have unsaved keystrokes that haven't been debounce-flushed yet.
+		if (id === this.currentDocId) return;
+
+		try {
+			const doc = await getDocument(id);
+			if (!doc) return;
+
+			const idx = this.documents.findIndex((d) => d.id === id);
+			if (idx !== -1) {
+				const updated = [...this.documents];
+				updated[idx] = doc;
+				this.documents = updated.sort((a, b) => b.updatedAt - a.updatedAt);
+			} else {
+				// New doc created in another tab
+				this.documents = [doc, ...this.documents].sort(
+					(a, b) => b.updatedAt - a.updatedAt,
+				);
+			}
+		} catch (err) {
+			console.error('[zenwrite] Failed to handle remote save:', err);
+		}
+	};
+
+	private _handleRemoteDelete = async (id: string): Promise<void> => {
+		this.documents = this.documents.filter((d) => d.id !== id);
+
+		if (this.currentDocId === id) {
+			if (this.documents.length > 0) {
+				this.currentDocId = this.documents[0].id;
+			} else {
+				await this.createNew();
+			}
+		}
+	};
+
+	private _reloadAllFromDB = async (): Promise<void> => {
+		try {
+			const dbDocs = await getDocuments();
+			const sorted = dbDocs.sort((a, b) => b.updatedAt - a.updatedAt);
+
+			// Preserve the in-memory (in-progress) state of the active document
+			this.documents = sorted.map((dbDoc) => {
+				if (dbDoc.id === this.currentDocId) {
+					return this.documents.find((d) => d.id === dbDoc.id) ?? dbDoc;
+				}
+				return dbDoc;
+			});
+
+			if (
+				this.currentDocId &&
+				!this.documents.find((d) => d.id === this.currentDocId)
+			) {
+				this.currentDocId = this.documents[0]?.id ?? null;
+				if (!this.currentDocId) await this.createNew();
+			}
+		} catch (err) {
+			console.error('[zenwrite] Failed to reload documents from DB:', err);
+		}
+	};
+
+	// ─── Local mutations ───────────────────────────────────────────────────────
 
 	createNew = async () => {
 		const id = crypto.randomUUID();
@@ -45,6 +139,7 @@ export class DocStore {
 		};
 		try {
 			await saveDocument(doc);
+			broadcastSave(doc.id);
 		} catch (err) {
 			console.error('[zenwrite] Failed to persist new document:', err);
 		}
@@ -56,23 +151,23 @@ export class DocStore {
 		const index = this.documents.findIndex((d) => d.id === this.currentDocId);
 		if (index === -1) return;
 
-		// Update in-memory state immediately for a responsive UI.
 		this.documents[index] = {
 			...this.documents[index],
 			...updates,
 			updatedAt: Date.now(),
 		};
 
-		// Debounce the DB write — collapses rapid keystrokes into one persist call.
 		if (this.saveTimer !== null) clearTimeout(this.saveTimer);
 		this.saveTimer = setTimeout(() => {
 			this.saveTimer = null;
 			const docId = this.currentDocId;
 			const latest = this.documents.find((d) => d.id === docId);
 			if (latest) {
-				saveDocument($state.snapshot(latest)).catch((err) => {
-					console.error('[zenwrite] Debounced save failed:', err);
-				});
+				saveDocument($state.snapshot(latest))
+					.then(() => broadcastSave(latest.id))
+					.catch((err) => {
+						console.error('[zenwrite] Debounced save failed:', err);
+					});
 			}
 		}, 400);
 	};
@@ -80,9 +175,10 @@ export class DocStore {
 	deleteDoc = async (id: string) => {
 		try {
 			await deleteDocument(id);
+			broadcastDelete(id);
 		} catch (err) {
 			console.error('[zenwrite] Failed to delete document:', err);
-			return; // Don't remove from UI if the DB delete failed
+			return;
 		}
 		this.documents = this.documents.filter((d) => d.id !== id);
 		if (this.currentDocId === id) {
@@ -94,14 +190,6 @@ export class DocStore {
 		}
 	};
 
-	/**
-	 * Import a list of documents into the store.
-	 *
-	 * @param docs           Documents parsed from a backup zip.
-	 * @param overwrite      When true, existing documents with matching IDs are
-	 *                       overwritten. When false (default), duplicates are skipped.
-	 * @returns              The number of documents actually written to the DB.
-	 */
 	importDocuments = async (
 		docs: Document[],
 		overwrite: boolean,
@@ -122,11 +210,10 @@ export class DocStore {
 		}
 
 		if (saved > 0) {
-			// Reload from DB so the list is authoritative and sorted
+			broadcastImport();
 			try {
 				const allDocs = await getDocuments();
 				this.documents = allDocs.sort((a, b) => b.updatedAt - a.updatedAt);
-				// Keep current doc selected if it still exists, else pick the newest
 				if (!this.documents.find((d) => d.id === this.currentDocId)) {
 					this.currentDocId = this.documents[0]?.id ?? null;
 				}
@@ -141,8 +228,6 @@ export class DocStore {
 	getAstroExport(doc: Document): string {
 		const clonedConfig = structuredClone($state.snapshot(doc.config));
 
-		// Map our internal 'title' into the Astro frontmatter.
-		// Fall back to 'Untitled Document' so the exported frontmatter is never blank.
 		if (!clonedConfig.title) {
 			clonedConfig.title = doc.title.trim() || 'Untitled Document';
 		}

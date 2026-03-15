@@ -2,8 +2,17 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
-import { Check, Copy, Maximize2, Menu, Minimize2 } from 'lucide-svelte';
+import {
+	AlertTriangle,
+	Check,
+	Copy,
+	Maximize2,
+	Menu,
+	Minimize2,
+	X,
+} from 'lucide-svelte';
 import { untrack } from 'svelte';
+import { fade, fly } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
 import {
 	customHighlightStyle,
@@ -11,6 +20,7 @@ import {
 	markdownKeymap,
 	minimalTheme,
 } from '$lib/editor/commands';
+import { tabPresence } from '$lib/tab-presence.svelte';
 import { uiState } from '$lib/ui-state.svelte';
 import Frontmatter from './Frontmatter.svelte';
 import StatsBar from './StatsBar.svelte';
@@ -21,13 +31,34 @@ let editorView: EditorView | undefined;
 let lastAutoScrollTime = 0;
 const autoScrollCooldown = 80;
 
+// ─── Conflict warning state ───────────────────────────────────────────────────
+
+/**
+ * The user can manually dismiss the warning for the current session.
+ * It resets whenever the document changes so they always see it once
+ * when switching to a doc that has a conflict.
+ */
+let warningDismissed = $state(false);
+
+$effect(() => {
+	// Re-arm the warning whenever the active document changes
+	// (reading currentDocId makes this effect re-run on every doc switch).
+	docStore.currentDocId; // eslint-disable-line @typescript-eslint/no-unused-expressions
+	warningDismissed = false;
+});
+
+const showConflictWarning = $derived(
+	tabPresence.hasConflict && !warningDismissed,
+);
+
+// ─── Title textarea ───────────────────────────────────────────────────────────
+
 function autoResizeTitle() {
 	if (!titleInput) return;
 	titleInput.style.height = 'auto';
 	titleInput.style.height = `${titleInput.scrollHeight}px`;
 }
 
-// Replace with field-sizing CSS property when it's supported by all major browsers (currently only Firefox hasn't)
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLTextAreaElement;
 	docStore.updateCurrent({ title: target.value });
@@ -40,6 +71,8 @@ function handleTitleKeydown(e: KeyboardEvent) {
 		editorView.focus();
 	}
 }
+
+// ─── Copy markdown ────────────────────────────────────────────────────────────
 
 let copied = $state(false);
 
@@ -56,11 +89,15 @@ async function copyMarkdown() {
 	}, 2000);
 }
 
+// ─── Zen mode ─────────────────────────────────────────────────────────────────
+
 function handleGlobalKeydown(e: KeyboardEvent) {
 	if (e.key === 'Escape' && uiState.zenMode) {
 		uiState.zenMode = false;
 	}
 }
+
+// ─── CodeMirror ───────────────────────────────────────────────────────────────
 
 let initializedId: string | null = null;
 
@@ -140,38 +177,27 @@ $effect(() => {
 $effect(() => {
 	if (uiState.scrollToIndex !== null && editorView) {
 		const pos = uiState.scrollToIndex;
-		// Untrack to prevent circular dependencies
 		untrack(() => {
 			editorView!.dispatch({
 				selection: { anchor: pos, head: pos },
 				scrollIntoView: true,
 			});
 			editorView!.focus();
-			// Immediately clear the state
 			uiState.scrollToIndex = null;
 		});
 	}
 });
 
 $effect(() => {
-	// Auto-focus title for brand-new documents so the cursor lands there,
-	// signalling clearly that the user should start by writing a title.
-	// `isNew` is persisted in the DB so this survives page reloads and
-	// never misfires when navigating back to an existing document.
 	if (docStore.currentDocument?.isNew && titleInput) {
 		untrack(() => {
 			titleInput!.focus();
-			// Clear the flag immediately so it only fires once, ever.
 			docStore.updateCurrent({ isNew: false });
 		});
 	}
 });
 
 $effect(() => {
-	// Resize the textarea to fit the current title whenever the document
-	// changes (switching docs) or when the textarea first mounts.
-	// Reading both `currentDocument.title` and `titleInput` makes Svelte
-	// re-run this effect on either change.
 	if (docStore.currentDocument?.title !== undefined && titleInput) {
 		untrack(() => autoResizeTitle());
 	}
@@ -195,10 +221,10 @@ $effect(() => {
 					{/if}
 				</button>
 				<div class="pill-divider"></div>
-				<button 
-					class="action-btn zen-btn" 
+				<button
+					class="action-btn zen-btn"
 					class:active={uiState.zenMode}
-					onclick={uiState.toggleZenMode} 
+					onclick={uiState.toggleZenMode}
 					title={uiState.zenMode ? 'Exit Zen Mode (Esc)' : 'Enter Zen Mode'}
 				>
 					{#if uiState.zenMode}
@@ -210,19 +236,49 @@ $effect(() => {
 			</div>
 		</div>
 
+		<!-- ── Multi-tab conflict warning ──────────────────────────────────── -->
+		{#if showConflictWarning}
+			<div
+				class="conflict-banner"
+				role="alert"
+				aria-live="polite"
+				in:fly={{ y: -8, duration: 220 }}
+				out:fade={{ duration: 160 }}
+			>
+				<div class="conflict-pill">
+					<AlertTriangle size={14} class="conflict-icon" />
+					<span class="conflict-msg">
+						{#if tabPresence.conflictCount === 1}
+							This document is open in another tab — edits may overwrite each other.
+						{:else}
+							This document is open in {tabPresence.conflictCount} other tabs — edits may overwrite each other.
+						{/if}
+					</span>
+					<button
+						class="conflict-dismiss"
+						onclick={() => (warningDismissed = true)}
+						aria-label="Dismiss warning"
+						title="Dismiss"
+					>
+						<X size={12} strokeWidth={2.5} />
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		<div class="editor-content" role="region" aria-label="Editor Area">
-			<textarea 
+			<textarea
 				rows="1"
-				class="title-input" 
-				placeholder="Untitled Document" 
-				value={docStore.currentDocument.title} 
+				class="title-input"
+				placeholder="Untitled Document"
+				value={docStore.currentDocument.title}
 				oninput={handleTitleChange}
 				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}
 			></textarea>
 
 			<Frontmatter />
-			
+
 			<div bind:this={editorContainer} class="codemirror-wrapper"></div>
 		</div>
 
@@ -295,7 +351,7 @@ $effect(() => {
 		border: 1px solid var(--border);
 		padding: 6px 12px;
 		border-radius: 40px;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 		pointer-events: auto;
 		transition: all 0.3s ease;
 	}
@@ -334,6 +390,81 @@ $effect(() => {
 		color: var(--accent);
 	}
 
+	/* ── Conflict warning ──────────────────────────────────────────────────── */
+
+	.conflict-banner {
+		display: flex;
+		justify-content: center;
+		/* Sits flush below the top-nav without a gap, negative margin pulls it
+		   up into the space the top-nav's bottom padding already reserves. */
+		margin-top: -16px;
+		padding: 0 40px 12px;
+		pointer-events: none;
+		z-index: 15;
+	}
+
+	.conflict-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		background: rgba(245, 158, 11, 0.10);
+		border: 1px solid rgba(245, 158, 11, 0.35);
+		color: #b45309; /* amber-700 — readable on light bg */
+		border-radius: 40px;
+		padding: 6px 10px 6px 14px;
+		font-size: 0.8rem;
+		font-weight: 500;
+		line-height: 1.4;
+		pointer-events: auto;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+		max-width: 520px;
+	}
+
+	:global(html.dark) .conflict-pill {
+		background: rgba(245, 158, 11, 0.12);
+		border-color: rgba(245, 158, 11, 0.30);
+		color: #fbbf24; /* amber-400 — readable on dark bg */
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	}
+
+	.conflict-pill :global(.conflict-icon) {
+		flex-shrink: 0;
+		opacity: 0.9;
+	}
+
+	.conflict-msg {
+		flex: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.conflict-dismiss {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		border: none;
+		background: transparent;
+		color: inherit;
+		opacity: 0.55;
+		cursor: pointer;
+		transition: opacity 0.15s, background 0.15s;
+		margin-left: 2px;
+	}
+
+	.conflict-dismiss:hover {
+		opacity: 1;
+		background: rgba(245, 158, 11, 0.18);
+	}
+
+	/* ── Editor card ─────────────────────────────────────────────────────── */
+
 	.editor-content {
 		max-width: 800px;
 		width: calc(100% - 48px);
@@ -342,14 +473,13 @@ $effect(() => {
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-		
-		/* Light glass effect */
+
 		background: rgba(128, 128, 128, 0.02);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
 		border: 1px solid var(--border);
 		border-radius: 20px;
-		box-shadow: 
+		box-shadow:
 			0 8px 32px rgba(0, 0, 0, 0.03),
 			inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 	}
@@ -375,20 +505,17 @@ $effect(() => {
 		opacity: 0.5;
 	}
 
-
-
 	.codemirror-wrapper {
 		width: 100%;
 		min-height: 60vh;
 	}
 
-	/* We target the CM elements to ensure clean styling within our dark/light scope */
 	.codemirror-wrapper :global(.cm-editor) {
 		background-color: transparent !important;
 	}
-	
+
 	.codemirror-wrapper :global(.cm-scroller) {
-		overflow: visible !important; 
+		overflow: visible !important;
 		height: auto !important;
 	}
 
@@ -412,7 +539,6 @@ $effect(() => {
 		margin-bottom: 8px;
 	}
 
-	/* Responsive design limits */
 	@media (max-width: 768px) {
 		.editor-content {
 			padding: 32px 24px 120px;
@@ -425,6 +551,12 @@ $effect(() => {
 		}
 		.codemirror-wrapper :global(.cm-content) {
 			font-size: 1.1rem;
+		}
+		.conflict-banner {
+			padding: 0 16px 10px;
+		}
+		.conflict-msg {
+			white-space: normal;
 		}
 	}
 </style>

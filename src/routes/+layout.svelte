@@ -2,6 +2,7 @@
 import '../app.css';
 import { onMount } from 'svelte';
 import { docStore } from '$lib/doc-store.svelte';
+import { tabPresence } from '$lib/tab-presence.svelte';
 import { uiState } from '$lib/ui-state.svelte';
 
 let { children } = $props();
@@ -23,6 +24,13 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 onMount(() => {
 	uiState.initTheme();
 	docStore.init();
+	tabPresence.init();
+});
+
+// Keep tabPresence in sync whenever the active document changes.
+// This runs after init() sets currentDocId and on every subsequent switch.
+$effect(() => {
+	tabPresence.setCurrentDoc(docStore.currentDocId);
 });
 </script>
 
