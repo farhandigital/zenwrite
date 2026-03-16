@@ -9,10 +9,12 @@ import {
 	Plus,
 	Search,
 	Sun,
+	Tag,
 	Trash,
 	X,
 } from 'lucide-svelte';
 import MiniSearch from 'minisearch';
+import { slide } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
 import type { Document } from '$lib/types';
 import { uiState } from '$lib/ui-state.svelte';
@@ -41,12 +43,56 @@ const miniSearch = $derived.by(() => {
 	return ms;
 });
 
+// --- Tag filtering ---
+
+/** All unique tags across all documents, sorted alphabetically. */
+const allTags = $derived.by(() => {
+	const set = new Set<string>();
+	for (const doc of docStore.documents) {
+		for (const tag of doc.config.tags ?? []) {
+			if (tag) set.add(tag);
+		}
+	}
+	return [...set].sort((a, b) => a.localeCompare(b));
+});
+
+let selectedTags: Set<string> = $state(new Set());
+
+function toggleTag(tag: string) {
+	const next = new Set(selectedTags);
+	if (next.has(tag)) {
+		next.delete(tag);
+	} else {
+		next.add(tag);
+	}
+	selectedTags = next;
+}
+
+function clearTags() {
+	selectedTags = new Set();
+}
+
+// --- Combined filtering ---
+
 const displayedDocs = $derived.by(() => {
 	const q = searchQuery.trim();
-	if (!q) return docStore.documents;
-	const hits = miniSearch.search(q);
-	const hitIds = new Set(hits.map((h) => h.id));
-	return docStore.documents.filter((d) => hitIds.has(d.id));
+	let docs = docStore.documents;
+
+	// Text search
+	if (q) {
+		const hits = miniSearch.search(q);
+		const hitIds = new Set(hits.map((h) => h.id));
+		docs = docs.filter((d) => hitIds.has(d.id));
+	}
+
+	// Tag filter (OR: doc must have at least one selected tag)
+	if (selectedTags.size > 0) {
+		docs = docs.filter((d) =>
+			(d.config.tags ?? []).some((tag) => selectedTags.has(tag)),
+		);
+	}
+
+	return docs;
 });
 
 function clearSearch() {
@@ -57,7 +103,6 @@ function clearSearch() {
 
 function handleFileClick(id: string) {
 	docStore.switchDocument(id);
-	// On mobile, maybe close sidebar
 }
 
 function createNew() {
@@ -84,6 +129,11 @@ function formatDate(ts: number): string {
 		minute: 'numeric',
 	}).format(new Date(ts));
 }
+
+/** Whether any filtering (text or tags) is currently active. */
+const isFiltered = $derived(
+	searchQuery.trim().length > 0 || selectedTags.size > 0,
+);
 </script>
 
 <aside class="sidebar frosted-glass" class:open={uiState.sidebarOpen} class:zen={uiState.zenMode}>
@@ -123,11 +173,82 @@ function formatDate(ts: number): string {
 			{/if}
 		</div>
 
+		<!-- Tag filter bar — only rendered when tags exist -->
+		{#if allTags.length > 0}
+			<div class="tag-filter-section" transition:slide={{ duration: 180 }}>
+				<div class="tag-filter-header">
+					<div class="tag-filter-label">
+						<Tag size={11} />
+						<span>Filter by tag</span>
+					</div>
+					{#if selectedTags.size > 0}
+						<button class="clear-tags-btn" onclick={clearTags} title="Clear tag filters">
+							<X size={10} />
+							<span>Clear</span>
+						</button>
+					{/if}
+				</div>
+				<div class="tag-chips" role="group" aria-label="Tag filters">
+					{#each allTags as tag (tag)}
+						<button
+							class="tag-chip"
+							class:active={selectedTags.has(tag)}
+							onclick={() => toggleTag(tag)}
+							aria-pressed={selectedTags.has(tag)}
+							title={`Filter by "${tag}"`}
+						>
+							{#if selectedTags.has(tag)}
+								<span class="chip-dot"></span>
+							{/if}
+							{tag}
+							<!-- Badge showing how many docs carry this tag -->
+							<span class="chip-count">
+								{docStore.documents.filter(d => (d.config.tags ?? []).includes(tag)).length}
+							</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Result summary when filters are active -->
+		{#if isFiltered}
+			<div class="filter-summary" transition:slide={{ duration: 150 }}>
+				<span class="summary-text">
+					{displayedDocs.length} of {docStore.documents.length} notes
+				</span>
+				{#if selectedTags.size > 0}
+					<span class="active-filter-chips">
+						{#each [...selectedTags] as tag (tag)}
+							<span class="active-chip">
+								{tag}
+								<button
+									class="active-chip-remove"
+									onclick={() => toggleTag(tag)}
+									aria-label="Remove {tag} filter"
+								>
+									<X size={9} strokeWidth={2.5} />
+								</button>
+							</span>
+						{/each}
+					</span>
+				{/if}
+			</div>
+		{/if}
+
 		<div class="file-list">
 			{#if displayedDocs.length === 0}
 				<div class="empty-state">
-					<Search size={24} class="empty-icon" />
-					<p>No results for<br /><strong>"{searchQuery}"</strong></p>
+					{#if isFiltered}
+						<Tag size={24} class="empty-icon" />
+						<p>No notes match<br />your filters</p>
+						<button class="reset-filters-btn" onclick={() => { clearSearch(); clearTags(); }}>
+							<X size={12} /> Reset filters
+						</button>
+					{:else}
+						<Search size={24} class="empty-icon" />
+						<p>No results for<br /><strong>"{searchQuery}"</strong></p>
+					{/if}
 				</div>
 			{:else}
 				{#each displayedDocs as doc (doc.id)}
@@ -146,7 +267,12 @@ function formatDate(ts: number): string {
 								<span class="file-date">{formatDate(doc.createdAt)}</span>
 								<span class="file-tags">
 									{#each doc.config.tags as tag (tag)}
-										<span class="tag">{tag}</span>
+										<button
+											class="tag"
+											class:highlighted={selectedTags.has(tag)}
+											onclick={(e) => { e.stopPropagation(); toggleTag(tag); }}
+											title={selectedTags.has(tag) ? `Remove "${tag}" filter` : `Filter by "${tag}"`}
+										>{tag}</button>
 									{/each}
 								</span>
 							</div>
@@ -204,15 +330,12 @@ function formatDate(ts: number): string {
 		z-index: 40;
 	}
 
-	/* Zen: collapse width to 0, releasing layout space so the editor
-	   expands to fill the full viewport and re-centers via margin: auto. */
+	/* Zen: collapse width to 0 */
 	.sidebar.zen {
 		width: 0;
 		border-right-color: transparent;
 	}
 
-	/* Fixed-width inner wrapper prevents content from reflowing
-	   during the width-collapse animation */
 	.sidebar-inner {
 		width: 280px;
 		height: 100%;
@@ -279,7 +402,6 @@ function formatDate(ts: number): string {
 			opacity: 0.6;
 		}
 
-		/* Remove the native "x" clear button in webkit */
 		&::-webkit-search-cancel-button {
 			display: none;
 		}
@@ -301,6 +423,174 @@ function formatDate(ts: number): string {
 		&:hover {
 			background: rgba(127, 127, 127, 0.2);
 			color: var(--text);
+		}
+	}
+
+	/* ---- Tag filter section ---- */
+	.tag-filter-section {
+		padding: 8px 12px 10px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.tag-filter-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 7px;
+	}
+
+	.tag-filter-label {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		font-size: 0.7rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--text-muted);
+		opacity: 0.7;
+	}
+
+	.clear-tags-btn {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 0.68rem;
+		font-weight: 600;
+		font-family: inherit;
+		color: var(--accent);
+		background: var(--accent-glow);
+		border: none;
+		border-radius: 99px;
+		padding: 2px 7px;
+		cursor: pointer;
+		transition: opacity 0.15s;
+		letter-spacing: 0.01em;
+
+		&:hover {
+			opacity: 0.75;
+		}
+	}
+
+	.tag-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 5px;
+	}
+
+	.tag-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 9px;
+		font-size: 0.72rem;
+		font-weight: 600;
+		font-family: inherit;
+		letter-spacing: 0.01em;
+		color: var(--text-muted);
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 99px;
+		cursor: pointer;
+		transition:
+			color 0.15s,
+			background 0.15s,
+			border-color 0.15s,
+			transform 0.1s;
+		position: relative;
+		user-select: none;
+
+		&:hover {
+			color: var(--accent);
+			background: var(--accent-glow);
+			border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+		}
+
+		&:active {
+			transform: scale(0.95);
+		}
+	}
+
+	.tag-chip.active {
+		color: var(--accent);
+		background: var(--accent-glow);
+		border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+		box-shadow: 0 0 0 2px var(--accent-glow);
+	}
+
+	.chip-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--accent);
+		flex-shrink: 0;
+	}
+
+	.chip-count {
+		font-size: 0.65rem;
+		font-weight: 700;
+		opacity: 0.55;
+		letter-spacing: 0;
+	}
+
+	/* ---- Filter summary bar ---- */
+	.filter-summary {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 5px;
+		padding: 5px 12px 6px;
+		border-bottom: 1px solid var(--border);
+		background: rgba(59, 130, 246, 0.03);
+		min-height: 0;
+	}
+
+	.summary-text {
+		font-size: 0.68rem;
+		color: var(--text-muted);
+		opacity: 0.7;
+		letter-spacing: 0.01em;
+		white-space: nowrap;
+	}
+
+	.active-filter-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.active-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		padding: 1px 6px 1px 7px;
+		font-size: 0.65rem;
+		font-weight: 600;
+		color: var(--accent);
+		background: var(--accent-glow);
+		border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		border-radius: 99px;
+		letter-spacing: 0.01em;
+	}
+
+	.active-chip-remove {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 13px;
+		height: 13px;
+		border-radius: 50%;
+		border: none;
+		background: transparent;
+		color: inherit;
+		opacity: 0.6;
+		cursor: pointer;
+		transition: opacity 0.15s;
+		padding: 0;
+		flex-shrink: 0;
+
+		&:hover {
+			opacity: 1;
 		}
 	}
 
@@ -327,6 +617,27 @@ function formatDate(ts: number): string {
 
 	.empty-state strong {
 		opacity: 0.9;
+	}
+
+	.reset-filters-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		margin-top: 4px;
+		padding: 5px 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		font-family: inherit;
+		color: var(--accent);
+		background: var(--accent-glow);
+		border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		border-radius: 99px;
+		cursor: pointer;
+		transition: opacity 0.15s;
+
+		&:hover {
+			opacity: 0.75;
+		}
 	}
 
 	/* ---- File list ---- */
@@ -383,33 +694,57 @@ function formatDate(ts: number): string {
 		opacity: 0.7;
 		letter-spacing: 0.01em;
 	}
-	
-	.file-tags {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-top: 2px;
-        
-        & .tag {
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--text-muted);
-            background-color: var(--border);
-            padding: 2px 8px;
-            border-radius: 99px;
-            border: 1px solid transparent;
-            transition: background-color 0.2s, color 0.2s;
-        }
-    }
 
-    /* Make the tags pop beautifully when the file is selected */
-    .file-item.active .file-tags .tag {
-        background-color: var(--surface);
-        color: var(--accent);
-        border-color: var(--accent-glow);
-    }
+	.file-tags {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+		margin-top: 2px;
+	}
+
+	/* Inline tags on file items — now also buttons for click-to-filter */
+	.file-tags .tag {
+		font-size: 0.65rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-muted);
+		background-color: var(--border);
+		padding: 2px 8px;
+		border-radius: 99px;
+		border: 1px solid transparent;
+		transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+		cursor: pointer;
+		font-family: inherit;
+
+		/* Reset button defaults */
+		appearance: none;
+
+		&:hover {
+			background: var(--accent-glow);
+			color: var(--accent);
+			border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+		}
+	}
+
+	/* Tag is part of an active filter */
+	.file-tags .tag.highlighted {
+		background: var(--accent-glow);
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+		box-shadow: 0 0 0 1.5px var(--accent-glow);
+	}
+
+	/* When the whole file-item is active (selected doc), style highlighted tags distinctly */
+	.file-item.active .file-tags .tag {
+		background-color: var(--surface);
+		color: var(--accent);
+		border-color: var(--accent-glow);
+	}
+
+	.file-item.active .file-tags .tag.highlighted {
+		box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent);
+	}
 
 	:global(.file-icon) {
 		color: var(--text-muted);
@@ -433,6 +768,7 @@ function formatDate(ts: number): string {
 		opacity: 1;
 	}
 
+	/* ---- Footer ---- */
 	.sidebar-footer {
 		padding: 12px;
 		border-top: 1px solid var(--border);
@@ -457,10 +793,6 @@ function formatDate(ts: number): string {
 	.menu-item:hover {
 		background: var(--border);
 		color: var(--text);
-	}
-
-	.zen-toggle {
-		color: var(--text-muted);
 	}
 
 	.zen-toggle:hover {
