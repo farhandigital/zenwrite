@@ -1,6 +1,7 @@
 <script lang="ts">
 import {
 	Archive,
+	ChevronRight,
 	FileText,
 	Focus,
 	History,
@@ -57,6 +58,12 @@ const allTags = $derived.by(() => {
 });
 
 let selectedTags: Set<string> = $state(new Set());
+let tagFilterOpen = $state(false);
+
+// Auto-expand the panel when a tag gets selected via inline click on a file item
+$effect(() => {
+	if (selectedTags.size > 0) tagFilterOpen = true;
+});
 
 function toggleTag(tag: string) {
 	const next = new Set(selectedTags);
@@ -173,41 +180,71 @@ const isFiltered = $derived(
 			{/if}
 		</div>
 
-		<!-- Tag filter bar — only rendered when tags exist -->
+		<!-- Tag filter — only rendered when tags exist -->
 		{#if allTags.length > 0}
-			<div class="tag-filter-section" transition:slide={{ duration: 180 }}>
-				<div class="tag-filter-header">
+			<div class="tag-filter-section">
+				<!-- Toggle header -->
+				<button
+					class="tag-filter-header"
+					onclick={() => (tagFilterOpen = !tagFilterOpen)}
+					aria-expanded={tagFilterOpen}
+					aria-controls="tag-chips-panel"
+				>
 					<div class="tag-filter-label">
 						<Tag size={11} />
 						<span>Filter by tag</span>
+						{#if selectedTags.size > 0}
+							<span class="active-tag-badge">{selectedTags.size}</span>
+						{/if}
 					</div>
-					{#if selectedTags.size > 0}
-						<button class="clear-tags-btn" onclick={clearTags} title="Clear tag filters">
-							<X size={10} />
-							<span>Clear</span>
-						</button>
-					{/if}
-				</div>
-				<div class="tag-chips" role="group" aria-label="Tag filters">
-					{#each allTags as tag (tag)}
-						<button
-							class="tag-chip"
-							class:active={selectedTags.has(tag)}
-							onclick={() => toggleTag(tag)}
-							aria-pressed={selectedTags.has(tag)}
-							title={`Filter by "${tag}"`}
-						>
-							{#if selectedTags.has(tag)}
-								<span class="chip-dot"></span>
-							{/if}
-							{tag}
-							<!-- Badge showing how many docs carry this tag -->
-							<span class="chip-count">
-								{docStore.documents.filter(d => (d.config.tags ?? []).includes(tag)).length}
+					<div class="tag-filter-right">
+						{#if selectedTags.size > 0}
+							<!-- stop propagation so clicking Clear doesn't also toggle the panel -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<span
+								class="clear-tags-btn"
+								onclick={(e) => { e.stopPropagation(); clearTags(); }}
+								title="Clear tag filters"
+							>
+								<X size={10} />
+								<span>Clear</span>
 							</span>
-						</button>
-					{/each}
-				</div>
+						{/if}
+						<span class="chevron" class:rotated={tagFilterOpen}>
+							<ChevronRight size={13} />
+						</span>
+					</div>
+				</button>
+
+				<!-- Collapsible chips -->
+				{#if tagFilterOpen}
+					<div
+						id="tag-chips-panel"
+						class="tag-chips"
+						role="group"
+						aria-label="Tag filters"
+						transition:slide={{ duration: 160 }}
+					>
+						{#each allTags as tag (tag)}
+							<button
+								class="tag-chip"
+								class:active={selectedTags.has(tag)}
+								onclick={() => toggleTag(tag)}
+								aria-pressed={selectedTags.has(tag)}
+								title={`Filter by "${tag}"`}
+							>
+								{#if selectedTags.has(tag)}
+									<span class="chip-dot"></span>
+								{/if}
+								{tag}
+								<span class="chip-count">
+									{docStore.documents.filter((d) => (d.config.tags ?? []).includes(tag)).length}
+								</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -242,7 +279,10 @@ const isFiltered = $derived(
 					{#if isFiltered}
 						<Tag size={24} class="empty-icon" />
 						<p>No notes match<br />your filters</p>
-						<button class="reset-filters-btn" onclick={() => { clearSearch(); clearTags(); }}>
+						<button
+							class="reset-filters-btn"
+							onclick={() => { clearSearch(); clearTags(); }}
+						>
 							<X size={12} /> Reset filters
 						</button>
 					{:else}
@@ -252,8 +292,8 @@ const isFiltered = $derived(
 				</div>
 			{:else}
 				{#each displayedDocs as doc (doc.id)}
-					<div 
-						class="file-item" 
+					<div
+						class="file-item"
 						class:active={docStore.currentDocId === doc.id}
 						onclick={() => handleFileClick(doc.id)}
 						onkeydown={(e) => e.key === 'Enter' && handleFileClick(doc.id)}
@@ -330,12 +370,15 @@ const isFiltered = $derived(
 		z-index: 40;
 	}
 
-	/* Zen: collapse width to 0 */
+	/* Zen: collapse width to 0, releasing layout space so the editor
+	   expands to fill the full viewport and re-centers via margin: auto. */
 	.sidebar.zen {
 		width: 0;
 		border-right-color: transparent;
 	}
 
+	/* Fixed-width inner wrapper prevents content from reflowing
+	   during the width-collapse animation */
 	.sidebar-inner {
 		width: 280px;
 		height: 100%;
@@ -402,6 +445,7 @@ const isFiltered = $derived(
 			opacity: 0.6;
 		}
 
+		/* Remove the native "x" clear button in webkit */
 		&::-webkit-search-cancel-button {
 			display: none;
 		}
@@ -428,15 +472,28 @@ const isFiltered = $derived(
 
 	/* ---- Tag filter section ---- */
 	.tag-filter-section {
-		padding: 8px 12px 10px;
+		padding: 4px 12px 8px;
 		border-bottom: 1px solid var(--border);
 	}
 
+	/* The entire header row is a button */
 	.tag-filter-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: 7px;
+		width: 100%;
+		padding: 5px 4px;
+		background: transparent;
+		border: none;
+		border-radius: 6px;
+		cursor: pointer;
+		font-family: inherit;
+		color: inherit;
+		transition: background 0.15s;
+
+		&:hover {
+			background: rgba(127, 127, 127, 0.07);
+		}
 	}
 
 	.tag-filter-label {
@@ -449,6 +506,43 @@ const isFiltered = $derived(
 		letter-spacing: 0.06em;
 		color: var(--text-muted);
 		opacity: 0.7;
+	}
+
+	/* Small filled pill showing count of active tag filters */
+	.active-tag-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		font-size: 0.6rem;
+		font-weight: 700;
+		color: #fff;
+		background: var(--accent);
+		border-radius: 99px;
+		line-height: 1;
+		opacity: 1;
+	}
+
+	.tag-filter-right {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	/* Chevron rotates 90° when open */
+	.chevron {
+		display: flex;
+		align-items: center;
+		color: var(--text-muted);
+		opacity: 0.5;
+		transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		flex-shrink: 0;
+	}
+
+	.chevron.rotated {
+		transform: rotate(90deg);
 	}
 
 	.clear-tags-btn {
@@ -476,6 +570,7 @@ const isFiltered = $derived(
 		display: flex;
 		flex-wrap: wrap;
 		gap: 5px;
+		padding: 6px 4px 2px;
 	}
 
 	.tag-chip {
@@ -497,7 +592,6 @@ const isFiltered = $derived(
 			background 0.15s,
 			border-color 0.15s,
 			transform 0.1s;
-		position: relative;
 		user-select: none;
 
 		&:hover {
@@ -530,7 +624,6 @@ const isFiltered = $derived(
 		font-size: 0.65rem;
 		font-weight: 700;
 		opacity: 0.55;
-		letter-spacing: 0;
 	}
 
 	/* ---- Filter summary bar ---- */
@@ -542,7 +635,6 @@ const isFiltered = $derived(
 		padding: 5px 12px 6px;
 		border-bottom: 1px solid var(--border);
 		background: rgba(59, 130, 246, 0.03);
-		min-height: 0;
 	}
 
 	.summary-text {
@@ -570,7 +662,6 @@ const isFiltered = $derived(
 		background: var(--accent-glow);
 		border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
 		border-radius: 99px;
-		letter-spacing: 0.01em;
 	}
 
 	.active-chip-remove {
@@ -700,30 +791,26 @@ const isFiltered = $derived(
 		gap: 6px;
 		flex-wrap: wrap;
 		margin-top: 2px;
-	}
 
-	/* Inline tags on file items — now also buttons for click-to-filter */
-	.file-tags .tag {
-		font-size: 0.65rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--text-muted);
-		background-color: var(--border);
-		padding: 2px 8px;
-		border-radius: 99px;
-		border: 1px solid transparent;
-		transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-		cursor: pointer;
-		font-family: inherit;
+		& .tag {
+			font-size: 0.65rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--text-muted);
+			background-color: var(--border);
+			padding: 2px 8px;
+			border-radius: 99px;
+			border: 1px solid transparent;
+			transition: background-color 0.2s, color 0.2s;
+			cursor: pointer;
+			font-family: inherit;
 
-		/* Reset button defaults */
-		appearance: none;
-
-		&:hover {
-			background: var(--accent-glow);
-			color: var(--accent);
-			border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+			&:hover {
+				background: var(--accent-glow);
+				color: var(--accent);
+				border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+			}
 		}
 	}
 
@@ -732,18 +819,13 @@ const isFiltered = $derived(
 		background: var(--accent-glow);
 		color: var(--accent);
 		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-		box-shadow: 0 0 0 1.5px var(--accent-glow);
 	}
 
-	/* When the whole file-item is active (selected doc), style highlighted tags distinctly */
+	/* Make the tags pop beautifully when the file is selected */
 	.file-item.active .file-tags .tag {
 		background-color: var(--surface);
 		color: var(--accent);
 		border-color: var(--accent-glow);
-	}
-
-	.file-item.active .file-tags .tag.highlighted {
-		box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent);
 	}
 
 	:global(.file-icon) {
@@ -768,7 +850,6 @@ const isFiltered = $derived(
 		opacity: 1;
 	}
 
-	/* ---- Footer ---- */
 	.sidebar-footer {
 		padding: 12px;
 		border-top: 1px solid var(--border);
@@ -793,6 +874,10 @@ const isFiltered = $derived(
 	.menu-item:hover {
 		background: var(--border);
 		color: var(--text);
+	}
+
+	.zen-toggle {
+		color: var(--text-muted);
 	}
 
 	.zen-toggle:hover {
