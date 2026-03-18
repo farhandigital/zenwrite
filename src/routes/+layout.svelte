@@ -37,6 +37,7 @@ $effect(() => {
 </script>
 
 <svelte:window onkeydown={handleGlobalShortcut} />
+<svelte:document onfullscreenchange={uiState.handleFullscreenChange} />
 
 {#if docStore.documents.length > 0}
 	<div class="app-layout">

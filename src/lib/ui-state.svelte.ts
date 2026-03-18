@@ -34,8 +34,8 @@ export class UiState {
 	};
 
 	toggleZenMode = () => {
-		this.zenMode = !this.zenMode;
-		if (this.zenMode) {
+		if (!this.zenMode) {
+			// Snapshot and collapse panels optimistically.
 			this.preZenPanelsState = {
 				tocOpen: this.tocOpen,
 				settingsOpen: this.settingsOpen,
@@ -44,9 +44,31 @@ export class UiState {
 			this.tocOpen = false;
 			this.settingsOpen = false;
 			this.sidebarOpen = false;
-			document.documentElement.requestFullscreen();
+
+			// Request fullscreen — zenMode will be set to true only if it succeeds
+			// via the fullscreenchange event handler.
+			document.documentElement.requestFullscreen().catch(() => {
+				// Fullscreen was denied — roll back panel state.
+				this.tocOpen = this.preZenPanelsState.tocOpen;
+				this.settingsOpen = this.preZenPanelsState.settingsOpen;
+				this.sidebarOpen = this.preZenPanelsState.sidebarOpen;
+			});
 		} else {
+			// exitFullscreen triggers fullscreenchange, which sets zenMode = false
+			// and restores panels. Nothing else needed here.
 			document.exitFullscreen();
+		}
+	};
+
+	handleFullscreenChange = () => {
+		const isFullscreen = !!document.fullscreenElement;
+
+		if (isFullscreen && !this.zenMode) {
+			// Fullscreen became active (our request succeeded).
+			this.zenMode = true;
+		} else if (!isFullscreen && this.zenMode) {
+			// Fullscreen ended — whether via our button, Esc, browser UI, or OS.
+			this.zenMode = false;
 			this.tocOpen = this.preZenPanelsState.tocOpen;
 			this.settingsOpen = this.preZenPanelsState.settingsOpen;
 			this.sidebarOpen = this.preZenPanelsState.sidebarOpen;

@@ -97,12 +97,8 @@ async function copyMarkdown() {
 }
 
 // ─── Zen mode ─────────────────────────────────────────────────────────────────
-
-function handleGlobalKeydown(e: KeyboardEvent) {
-	if (e.key === 'Escape' && uiState.zenMode) {
-		uiState.zenMode = false;
-	}
-}
+// No manual Escape handler needed: the browser exits fullscreen on Esc natively,
+// which fires fullscreenchange, handled by uiState.init().
 
 // ─── CodeMirror ───────────────────────────────────────────────────────────────
 
@@ -231,7 +227,7 @@ $effect(() => {
 });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+
 
 <div class="editor-container">
 	{#if docStore.currentDocument}
