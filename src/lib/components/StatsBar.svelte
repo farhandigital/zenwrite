@@ -7,11 +7,9 @@ const stats = $derived.by(() => {
 	if (!doc) return null;
 
 	// Combine title + content for a holistic count
-	const fullText = [doc.title, doc.content].filter(Boolean).join(' ');
-
+	const fullText = [doc.metadata.title, doc.content].filter(Boolean).join(' ');
 	const words =
 		fullText.trim() === '' ? 0 : fullText.trim().split(/\s+/).length;
-	// Character count on body content only (title is metadata-ish, but chars is more useful for body)
 	const chars = doc.content.length;
 	const readingTime = Math.max(1, Math.ceil(words / 200));
 

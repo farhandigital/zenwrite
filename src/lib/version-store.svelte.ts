@@ -184,14 +184,16 @@ class VersionStore {
 		doc: Document,
 		label: string | null,
 	): Promise<void> {
-		const fullText = [doc.title, doc.content].filter(Boolean).join(' ');
+		const fullText = [doc.metadata.title, doc.content]
+			.filter(Boolean)
+			.join(' ');
 		const wordCount =
 			fullText.trim() === '' ? 0 : fullText.trim().split(/\s+/).length;
 		const plainConfig = $state.snapshot(doc.metadata) as DocumentMetadata;
 		const version: DocumentVersion = {
 			id: crypto.randomUUID(),
 			docId: doc.id,
-			title: doc.title,
+			title: doc.metadata.title,
 			content: doc.content,
 			metadata: structuredClone(plainConfig),
 			createdAt: Date.now(),

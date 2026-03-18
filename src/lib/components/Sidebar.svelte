@@ -303,8 +303,8 @@ const isFiltered = $derived(
 						<div class="file-item-left">
 							<FileText size={16} class="file-icon" />
 							<div class="file-meta">
-								<span class="file-title">{getTitle(doc.title)}</span>
-								<span class="file-date">{formatDate(doc.createdAt)}</span>
+						<span class="file-title">{getTitle(doc.metadata.title)}</span>
+						<span class="file-date">{formatDate(doc.metadata.createdAt)}</span>
 								<span class="file-tags">
 									{#each doc.metadata.tags as tag (tag)}
 										<button

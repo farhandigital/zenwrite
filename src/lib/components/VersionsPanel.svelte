@@ -82,18 +82,20 @@ async function handleDelete(v: DocumentVersion, e: MouseEvent) {
 async function handleRestore(v: DocumentVersion) {
 	if (!docStore.currentDocument || restoring) return;
 	restoring = true;
-	const plainConfig = $state.snapshot(v.metadata) as DocumentMetadata;
+	const restoredMetadata = structuredClone(v.metadata) as DocumentMetadata;
 	try {
 		// Safety: checkpoint the current state first
 		await versionStore.createCheckpoint(
 			docStore.currentDocument,
 			`Before restore to ${formatTime(v.createdAt)}`,
 		);
-		// Restore
+		// Restore — merge v.title back into metadata
 		await docStore.updateCurrent({
-			title: v.title,
 			content: v.content,
-			metadata: structuredClone(plainConfig),
+			metadata: {
+				...restoredMetadata,
+				title: v.title,
+			},
 		});
 		close();
 	} finally {

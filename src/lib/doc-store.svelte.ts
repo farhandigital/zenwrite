@@ -26,7 +26,9 @@ export class DocStore {
 
 		try {
 			const docs = await getDocuments();
-			this.documents = docs.sort((a, b) => b.updatedAt - a.updatedAt);
+			this.documents = docs.sort(
+				(a, b) => b.metadata.updatedAt - a.metadata.updatedAt,
+			);
 		} catch (err) {
 			console.error('[zenwrite] Failed to load documents on init:', err);
 		}
@@ -73,11 +75,13 @@ export class DocStore {
 			if (idx !== -1) {
 				const updated = [...this.documents];
 				updated[idx] = doc;
-				this.documents = updated.sort((a, b) => b.updatedAt - a.updatedAt);
+				this.documents = updated.sort(
+					(a, b) => b.metadata.updatedAt - a.metadata.updatedAt,
+				);
 			} else {
 				// New doc created in another tab
 				this.documents = [doc, ...this.documents].sort(
-					(a, b) => b.updatedAt - a.updatedAt,
+					(a, b) => b.metadata.updatedAt - a.metadata.updatedAt,
 				);
 			}
 		} catch (err) {
@@ -100,7 +104,9 @@ export class DocStore {
 	private _reloadAllFromDB = async (): Promise<void> => {
 		try {
 			const dbDocs = await getDocuments();
-			const sorted = dbDocs.sort((a, b) => b.updatedAt - a.updatedAt);
+			const sorted = dbDocs.sort(
+				(a, b) => b.metadata.updatedAt - a.metadata.updatedAt,
+			);
 
 			// Preserve the in-memory (in-progress) state of the active document
 			this.documents = sorted.map((dbDoc) => {
@@ -126,16 +132,17 @@ export class DocStore {
 
 	createNew = async () => {
 		const id = crypto.randomUUID();
+		const now = Date.now();
 		const doc: Document = {
 			id,
-			title: '',
 			content: '',
 			metadata: {
+				title: '',
 				pubDate: new Date().toISOString().split('T')[0],
 				tags: [],
+				createdAt: now,
+				updatedAt: now,
 			},
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
 			isNew: true,
 		};
 		try {
@@ -152,11 +159,14 @@ export class DocStore {
 		const index = this.documents.findIndex((d) => d.id === this.currentDocId);
 		if (index === -1) return;
 
-		this.documents[index] = {
+		const updated = {
 			...this.documents[index],
 			...updates,
-			updatedAt: Date.now(),
 		};
+		if (updated.metadata) {
+			updated.metadata.updatedAt = Date.now();
+		}
+		this.documents[index] = updated;
 
 		if (this.saveTimer !== null) clearTimeout(this.saveTimer);
 		this.saveTimer = setTimeout(() => {
@@ -255,7 +265,7 @@ export class DocStore {
 		let saved = 0;
 		for (const doc of toWrite) {
 			try {
-				await saveDocument({ ...doc, updatedAt: Date.now() });
+				await saveDocument(doc);
 				saved++;
 			} catch (err) {
 				console.error('[zenwrite] Failed to import document:', doc.id, err);
@@ -266,7 +276,9 @@ export class DocStore {
 			broadcastImport();
 			try {
 				const allDocs = await getDocuments();
-				this.documents = allDocs.sort((a, b) => b.updatedAt - a.updatedAt);
+				this.documents = allDocs.sort(
+					(a, b) => b.metadata.updatedAt - a.metadata.updatedAt,
+				);
 				if (!this.documents.find((d) => d.id === this.currentDocId)) {
 					this.currentDocId = this.documents[0]?.id ?? null;
 				}
@@ -282,7 +294,7 @@ export class DocStore {
 		const clonedConfig = structuredClone($state.snapshot(doc.metadata));
 
 		if (!clonedConfig.title) {
-			clonedConfig.title = doc.title.trim() || 'Untitled Document';
+			clonedConfig.title = 'Untitled Document';
 		}
 
 		if (clonedConfig.tags && clonedConfig.tags.length === 0) {
@@ -293,7 +305,7 @@ export class DocStore {
 			const frontmatter = yaml.dump(clonedConfig);
 			return `---\n${frontmatter}---\n\n${doc.content}`;
 		} catch (e) {
-			return `---\ntitle: ${doc.title}\n---\n\n${doc.content}`;
+			return `---\ntitle: ${clonedConfig.title}\n---\n\n${doc.content}`;
 		}
 	}
 }

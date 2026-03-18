@@ -218,7 +218,7 @@ $effect(() => {
 });
 
 $effect(() => {
-	if (docStore.currentDocument?.title !== undefined && titleInput) {
+	if (docStore.currentDocument?.metadata.title !== undefined && titleInput) {
 		untrack(() => autoResizeTitle());
 	}
 });
@@ -291,7 +291,7 @@ $effect(() => {
 				rows="1"
 				class="title-input"
 				placeholder="Untitled Document"
-				value={docStore.currentDocument.title}
+				value={docStore.currentDocument.metadata.title}
 				oninput={handleTitleChange}
 				onkeydown={handleTitleKeydown}
 				bind:this={titleInput}

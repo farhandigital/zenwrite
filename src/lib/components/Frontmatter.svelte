@@ -113,9 +113,9 @@ function handleTagInputChange(e: Event) {
 
 {#if docStore.currentDocument}
 	<div class="doc-meta">
-		<span>Created {formatDate(docStore.currentDocument.createdAt)}</span>
+		<span>Created {formatDate(docStore.currentDocument.metadata.createdAt)}</span>
 		<span class="meta-divider">·</span>
-		<span>Updated {formatDate(docStore.currentDocument.updatedAt)}</span>
+		<span>Updated {formatDate(docStore.currentDocument.metadata.updatedAt)}</span>
 		<span class="meta-divider">·</span>
 		<button 
 			class="fm-toggle-btn" 

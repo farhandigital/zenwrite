@@ -41,7 +41,7 @@ export async function exportBackup(
 
 	// Add human-readable markdown files concurrently
 	for (const doc of snapshot) {
-		const base = slugify(doc.title || 'untitled');
+		const base = slugify(doc.metadata.title || 'untitled');
 		let slug = base;
 		let i = 1;
 		while (usedSlugs.has(slug)) slug = `${base}-${i++}`;
@@ -143,13 +143,13 @@ export async function previewImport(
 function parseMdToDocument(text: string, filename: string): Document {
 	const fmMatch = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 
-	let config: DocumentMetadata = {};
+	let config: Partial<DocumentMetadata> = {};
 	let content = text;
 	let title = filename.replace(/^documents\//, '').replace(/\.md$/, '');
 
 	if (fmMatch) {
 		try {
-			config = (yaml.load(fmMatch[1]) as DocumentMetadata) ?? {};
+			config = (yaml.load(fmMatch[1]) as Partial<DocumentMetadata>) ?? {};
 		} catch {
 			// malformed frontmatter — keep defaults
 		}
@@ -162,14 +162,14 @@ function parseMdToDocument(text: string, filename: string): Document {
 	const now = Date.now();
 	return {
 		id: crypto.randomUUID(),
-		title,
 		content,
 		metadata: {
+			title,
 			pubDate: new Date().toISOString().split('T')[0],
 			tags: [],
+			createdAt: now,
+			updatedAt: now,
 			...config,
 		},
-		createdAt: now,
-		updatedAt: now,
 	};
 }
