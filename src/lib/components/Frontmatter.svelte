@@ -6,13 +6,98 @@ import { uiState } from '$lib/ui-state.svelte';
 import {
 	autoResizeTextarea,
 	formatDate,
+	getSuggestions,
 	handleInput,
 	handleTagInput,
-	handleTagKeydown,
 	removeTag,
 } from './frontmatter';
 
 let isFrontmatterOpen = $state(false);
+
+// ── tag autocomplete state ──
+let tagInputValue = $state('');
+let activeSuggestionIndex = $state(-1);
+let dismissed = $state(false); // set by Escape, reset on next input
+
+const suggestions = $derived(
+	getSuggestions(tagInputValue, docStore.currentDocument?.config.tags ?? []),
+);
+const showSuggestions = $derived(
+	!dismissed && suggestions.length > 0 && tagInputValue.trim().length > 0,
+);
+
+function applyTag(tag: string) {
+	if (!docStore.currentDocument) return;
+	const config = { ...docStore.currentDocument.config };
+	const tags = [...(config.tags ?? [])];
+	if (!tags.includes(tag)) {
+		config.tags = [...tags, tag];
+		docStore.updateCurrent({ config });
+	}
+	tagInputValue = '';
+}
+
+function handleTagKeydownWithSuggestions(e: KeyboardEvent) {
+	if (e.key === 'ArrowDown') {
+		e.preventDefault();
+		activeSuggestionIndex = Math.min(
+			activeSuggestionIndex + 1,
+			suggestions.length - 1,
+		);
+		return;
+	}
+	if (e.key === 'ArrowUp') {
+		e.preventDefault();
+		activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
+		return;
+	}
+	if (e.key === 'Escape') {
+		dismissed = true;
+		activeSuggestionIndex = -1;
+		return;
+	}
+	if ((e.key === 'Enter' || e.key === ',') && activeSuggestionIndex >= 0) {
+		e.preventDefault();
+		applyTag(suggestions[activeSuggestionIndex]);
+		return;
+	}
+
+	// Handle Enter/comma for free-text tags (original behaviour)
+	if (e.key === 'Enter' || e.key === ',') {
+		e.preventDefault();
+		const val = tagInputValue.trim();
+		if (val && docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags ?? [])];
+			if (!tags.includes(val)) {
+				tags.push(val);
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+			tagInputValue = '';
+		}
+		return;
+	}
+
+	// Backspace on empty input removes last tag
+	if (e.key === 'Backspace' && tagInputValue === '') {
+		if (docStore.currentDocument) {
+			const config = { ...docStore.currentDocument.config };
+			const tags = [...(config.tags ?? [])];
+			if (tags.length > 0) {
+				tags.pop();
+				config.tags = tags;
+				docStore.updateCurrent({ config });
+			}
+		}
+	}
+}
+
+function handleTagInputChange(e: Event) {
+	dismissed = false; // re-show suggestions on new input
+	const cleared = handleTagInput(e);
+	if (cleared) tagInputValue = '';
+}
 </script>
 
 {#if docStore.currentDocument}
@@ -65,7 +150,7 @@ let isFrontmatterOpen = $state(false);
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
-					{#each (docStore.currentDocument.config.tags || []) as tag, i}
+					{#each (docStore.currentDocument.config.tags || []) as tag, i (tag)}
 						<span class="fm-tag">
 							{tag}
 							<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
@@ -73,14 +158,34 @@ let isFrontmatterOpen = $state(false);
 							</button>
 						</span>
 					{/each}
-					<input 
-						id="fm-tags-input" 
-						type="text" 
-						class="fm-tag-input"
-						onkeydown={handleTagKeydown}
-						oninput={handleTagInput}
-						placeholder={(docStore.currentDocument.config.tags || []).length === 0 ? "Add tags..." : ""}
-					/>
+					<div class="fm-tag-input-wrap">
+						<input 
+							id="fm-tags-input" 
+							type="text" 
+							class="fm-tag-input"
+							bind:value={tagInputValue}
+							onkeydown={handleTagKeydownWithSuggestions}
+							oninput={handleTagInputChange}
+							autocomplete="off"
+							placeholder={(docStore.currentDocument.config.tags ?? []).length === 0 ? 'Add tags…' : ''}
+						/>
+
+						{#if showSuggestions}
+							<ul class="tag-suggestions" role="listbox">
+								{#each suggestions as suggestion, i (suggestion)}
+									<li
+										class="tag-suggestion-item"
+										class:active={i === activeSuggestionIndex}
+										role="option"
+										aria-selected={i === activeSuggestionIndex}
+										onmousedown={(e) => { e.preventDefault(); applyTag(suggestion); }}
+									>
+										{suggestion}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -240,9 +345,15 @@ let isFrontmatterOpen = $state(false);
 		opacity: 1;
 	}
 
-	.fm-tag-input {
+	/* ── tag autocomplete ── */
+	.fm-tag-input-wrap {
+		position: relative;
 		flex: 1;
 		min-width: 80px;
+	}
+
+	.fm-tag-input {
+		width: 100%;
 		background: transparent;
 		border: none;
 		outline: none;
@@ -256,7 +367,43 @@ let isFrontmatterOpen = $state(false);
 		color: var(--text-muted);
 		opacity: 0.5;
 	}
-	
+
+	.tag-suggestions {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		z-index: 50;
+		background: var(--overlay);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 4px;
+		list-style: none;
+		margin: 0;
+		min-width: 140px;
+		max-width: 240px;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+	}
+
+	.tag-suggestion-item {
+		padding: 6px 10px;
+		font-size: 0.82rem;
+		border-radius: 6px;
+		cursor: pointer;
+		color: var(--text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		transition: background 0.12s, color 0.12s;
+	}
+
+	.tag-suggestion-item:hover,
+	.tag-suggestion-item.active {
+		background: var(--accent-glow);
+		color: var(--accent);
+	}
+
 	.fm-value-input::placeholder {
 		color: var(--text-muted);
 		opacity: 0.5;

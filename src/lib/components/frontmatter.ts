@@ -83,6 +83,45 @@ export function handleTagInput(e: Event) {
 			config.tags = tags;
 			docStore.updateCurrent({ config });
 		}
-		target.value = '';
+		return true; // caller should clear the input value
 	}
+	return false;
+}
+
+/** All unique tags across all documents, sorted alphabetically. */
+export function getAllTags(): string[] {
+	const set = new Set<string>();
+	for (const doc of docStore.documents) {
+		for (const tag of doc.config.tags ?? []) {
+			if (tag) set.add(tag);
+		}
+	}
+	return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Returns up to `limit` tag suggestions for the current input value.
+ * Excludes tags already on the document.
+ * Ranks: exact-prefix matches first, then contains, then alphabetical.
+ */
+export function getSuggestions(
+	input: string,
+	currentTags: string[],
+	limit = 6,
+): string[] {
+	const q = input.toLowerCase().trim();
+	if (!q) return [];
+
+	const current = new Set(currentTags);
+	const all = getAllTags().filter((t) => !current.has(t));
+
+	return all
+		.filter((t) => t.toLowerCase().includes(q))
+		.sort((a, b) => {
+			const aStarts = a.toLowerCase().startsWith(q);
+			const bStarts = b.toLowerCase().startsWith(q);
+			if (aStarts !== bStarts) return aStarts ? -1 : 1;
+			return a.localeCompare(b);
+		})
+		.slice(0, limit);
 }
