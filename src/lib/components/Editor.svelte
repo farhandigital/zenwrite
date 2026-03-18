@@ -61,7 +61,14 @@ function autoResizeTitle() {
 
 function handleTitleChange(e: Event) {
 	const target = e.target as HTMLTextAreaElement;
-	docStore.updateCurrent({ title: target.value });
+	const doc = docStore.currentDocument;
+	if (!doc) return;
+	docStore.updateCurrent({
+		metadata: {
+			...doc.metadata,
+			title: target.value,
+		},
+	});
 	autoResizeTitle();
 }
 
