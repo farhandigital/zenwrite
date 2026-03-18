@@ -1,4 +1,5 @@
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
+import { migrateDocument, migrateDocuments } from './migrations';
 import type { Document } from './types';
 
 interface ZenWriteDB extends DBSchema {
@@ -26,7 +27,8 @@ export async function getDocuments(): Promise<Document[]> {
 	try {
 		if (!dbPromise) initDB();
 		const db = await dbPromise;
-		return db.getAllFromIndex('documents', 'updatedAt');
+		const docs = await db.getAllFromIndex('documents', 'updatedAt');
+		return migrateDocuments(docs);
 	} catch (err) {
 		console.error('[zenwrite] Failed to load documents:', err);
 		return [];
@@ -37,7 +39,8 @@ export async function getDocument(id: string): Promise<Document | undefined> {
 	try {
 		if (!dbPromise) initDB();
 		const db = await dbPromise;
-		return db.get('documents', id);
+		const doc = await db.get('documents', id);
+		return doc ? (migrateDocument(doc) ?? undefined) : undefined;
 	} catch (err) {
 		console.error('[zenwrite] Failed to get document:', err);
 		return undefined;
