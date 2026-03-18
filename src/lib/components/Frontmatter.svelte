@@ -18,6 +18,7 @@ let isFrontmatterOpen = $state(false);
 let tagInputValue = $state('');
 let activeSuggestionIndex = $state(-1);
 let dismissed = $state(false); // set by Escape, reset on next input
+let duplicateTag = $state(''); // briefly set to flash an existing pill
 
 const suggestions = $derived(
 	getSuggestions(tagInputValue, docStore.currentDocument?.config.tags ?? []),
@@ -25,6 +26,15 @@ const suggestions = $derived(
 const showSuggestions = $derived(
 	!dismissed && suggestions.length > 0 && tagInputValue.trim().length > 0,
 );
+
+let _dupeTimer: ReturnType<typeof setTimeout> | undefined;
+function flashDuplicate(tag: string) {
+	duplicateTag = tag;
+	clearTimeout(_dupeTimer);
+	_dupeTimer = setTimeout(() => {
+		duplicateTag = '';
+	}, 800);
+}
 
 function applyTag(tag: string) {
 	if (!docStore.currentDocument) return;
@@ -66,15 +76,16 @@ function handleTagKeydownWithSuggestions(e: KeyboardEvent) {
 	if (e.key === 'Enter' || e.key === ',') {
 		e.preventDefault();
 		const val = tagInputValue.trim();
-		if (val && docStore.currentDocument) {
-			const config = { ...docStore.currentDocument.config };
-			const tags = [...(config.tags ?? [])];
-			if (!tags.includes(val)) {
-				tags.push(val);
-				config.tags = tags;
-				docStore.updateCurrent({ config });
-			}
-			tagInputValue = '';
+		tagInputValue = ''; // always clear — prevents void/stale tag bug
+		if (!val || !docStore.currentDocument) return;
+		const config = { ...docStore.currentDocument.config };
+		const tags = [...(config.tags ?? [])];
+		if (tags.includes(val)) {
+			flashDuplicate(val); // already there — show feedback
+		} else {
+			tags.push(val);
+			config.tags = tags;
+			docStore.updateCurrent({ config });
 		}
 		return;
 	}
@@ -151,7 +162,7 @@ function handleTagInputChange(e: Event) {
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
 					{#each (docStore.currentDocument.config.tags || []) as tag, i (tag)}
-						<span class="fm-tag">
+						<span class="fm-tag" class:duplicate={tag === duplicateTag}>
 							{tag}
 							<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
 								<X size={12} strokeWidth={2.5}/>
@@ -326,6 +337,21 @@ function handleTagInputChange(e: Event) {
 		background: var(--accent-glow);
 		border-color: rgba(59, 130, 246, 0.3);
 		color: var(--accent);
+	}
+
+	@keyframes tag-shake {
+		0%, 100% { transform: translateX(0); }
+		20%       { transform: translateX(-4px); }
+		40%       { transform: translateX(4px); }
+		60%       { transform: translateX(-3px); }
+		80%       { transform: translateX(3px); }
+	}
+
+	.fm-tag.duplicate {
+		background: rgba(234, 179, 8, 0.12);
+		border-color: rgba(234, 179, 8, 0.45);
+		color: rgb(202, 138, 4);
+		animation: tag-shake 0.35s ease;
 	}
 
 	.fm-tag-remove {
