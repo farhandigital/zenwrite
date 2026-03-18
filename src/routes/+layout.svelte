@@ -36,8 +36,14 @@ $effect(() => {
 });
 </script>
 
-<svelte:window onkeydown={handleGlobalShortcut} />
-<svelte:document onfullscreenchange={uiState.handleFullscreenChange} />
+<svelte:window
+	onkeydown={handleGlobalShortcut}
+	onbeforeunload={tabPresence.handleBeforeUnload}
+/>
+<svelte:document
+	onfullscreenchange={uiState.handleFullscreenChange}
+	onvisibilitychange={docStore.handleVisibilityChange}
+/>
 
 {#if docStore.documents.length > 0}
 	<div class="app-layout">

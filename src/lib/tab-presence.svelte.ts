@@ -80,15 +80,17 @@ class TabPresence {
 				}
 			}
 		});
-
-		// When the tab is closed or refreshed, announce departure so other tabs
-		// can clear the conflict immediately without waiting for a timeout.
-		window.addEventListener('beforeunload', () => {
-			if (this._currentDocId) {
-				broadcastTabLeft(this._currentDocId);
-			}
-		});
 	}
+
+	/**
+	 * Announces departure when the tab is closed or refreshed so other tabs can
+	 * clear the conflict immediately — wired via <svelte:window> in the layout.
+	 */
+	handleBeforeUnload = () => {
+		if (this._currentDocId) {
+			broadcastTabLeft(this._currentDocId);
+		}
+	};
 
 	/**
 	 * Call whenever the active document changes (including on first load).

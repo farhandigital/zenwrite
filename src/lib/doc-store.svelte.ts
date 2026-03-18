@@ -50,14 +50,17 @@ export class DocStore {
 			}
 			// Tab-presence messages are handled by tabPresence, not here.
 		});
+	};
 
-		// Full re-sync when the tab regains focus (BroadcastChannel messages are
-		// fire-and-forget; a long-backgrounded tab may have missed some).
-		document.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible') {
-				this._reloadAllFromDB();
-			}
-		});
+	/**
+	 * Full re-sync when the tab regains focus — wired via <svelte:document> in
+	 * the layout. BroadcastChannel messages are fire-and-forget; a long-
+	 * backgrounded tab may have missed some, so we reload from the DB on return.
+	 */
+	handleVisibilityChange = () => {
+		if (document.visibilityState === 'visible') {
+			this._reloadAllFromDB();
+		}
 	};
 
 	// ─── Remote-event handlers ─────────────────────────────────────────────────
