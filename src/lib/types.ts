@@ -1,4 +1,4 @@
-export interface DocumentConfig {
+export interface DocumentMetadata {
 	title?: string;
 	description?: string;
 	pubDate?: string;
@@ -10,7 +10,7 @@ export interface Document {
 	id: string;
 	title: string;
 	content: string;
-	config: DocumentConfig;
+	metadata: DocumentMetadata;
 	createdAt: number;
 	updatedAt: number;
 	/** True only for brand-new documents until the title has been auto-selected once. */

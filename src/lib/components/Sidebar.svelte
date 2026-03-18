@@ -31,7 +31,7 @@ const miniSearch = $derived.by(() => {
 		fields: ['title', 'content', 'tags'],
 		storeFields: ['id'],
 		extractField: (doc: Document, field: string) => {
-			if (field === 'tags') return (doc.config.tags ?? []).join(' ');
+			if (field === 'tags') return (doc.metadata.tags ?? []).join(' ');
 			return (doc as unknown as Record<string, unknown>)[field] as string;
 		},
 		searchOptions: {
@@ -50,7 +50,7 @@ const miniSearch = $derived.by(() => {
 const allTags = $derived.by(() => {
 	const set = new Set<string>();
 	for (const doc of docStore.documents) {
-		for (const tag of doc.config.tags ?? []) {
+		for (const tag of doc.metadata.tags ?? []) {
 			if (tag) set.add(tag);
 		}
 	}
@@ -95,7 +95,7 @@ const displayedDocs = $derived.by(() => {
 	// Tag filter (OR: doc must have at least one selected tag)
 	if (selectedTags.size > 0) {
 		docs = docs.filter((d) =>
-			(d.config.tags ?? []).some((tag) => selectedTags.has(tag)),
+			(d.metadata.tags ?? []).some((tag) => selectedTags.has(tag)),
 		);
 	}
 
@@ -239,7 +239,7 @@ const isFiltered = $derived(
 								{/if}
 								{tag}
 								<span class="chip-count">
-									{docStore.documents.filter((d) => (d.config.tags ?? []).includes(tag)).length}
+									{docStore.documents.filter((d) => (d.metadata.tags ?? []).includes(tag)).length}
 								</span>
 							</button>
 						{/each}
@@ -306,7 +306,7 @@ const isFiltered = $derived(
 								<span class="file-title">{getTitle(doc.title)}</span>
 								<span class="file-date">{formatDate(doc.createdAt)}</span>
 								<span class="file-tags">
-									{#each doc.config.tags as tag (tag)}
+									{#each doc.metadata.tags as tag (tag)}
 										<button
 											class="tag"
 											class:highlighted={selectedTags.has(tag)}

@@ -21,7 +21,7 @@ let dismissed = $state(false); // set by Escape, reset on next input
 let duplicateTag = $state(''); // briefly set to flash an existing pill
 
 const suggestions = $derived(
-	getSuggestions(tagInputValue, docStore.currentDocument?.config.tags ?? []),
+	getSuggestions(tagInputValue, docStore.currentDocument?.metadata.tags ?? []),
 );
 const showSuggestions = $derived(
 	!dismissed && suggestions.length > 0 && tagInputValue.trim().length > 0,
@@ -38,11 +38,11 @@ function flashDuplicate(tag: string) {
 
 function applyTag(tag: string) {
 	if (!docStore.currentDocument) return;
-	const config = { ...docStore.currentDocument.config };
+	const config = { ...docStore.currentDocument.metadata };
 	const tags = [...(config.tags ?? [])];
 	if (!tags.includes(tag)) {
 		config.tags = [...tags, tag];
-		docStore.updateCurrent({ config });
+		docStore.updateCurrent({ metadata: config });
 	}
 	tagInputValue = '';
 }
@@ -78,14 +78,14 @@ function handleTagKeydownWithSuggestions(e: KeyboardEvent) {
 		const val = tagInputValue.trim();
 		tagInputValue = ''; // always clear — prevents void/stale tag bug
 		if (!val || !docStore.currentDocument) return;
-		const config = { ...docStore.currentDocument.config };
+		const config = { ...docStore.currentDocument.metadata };
 		const tags = [...(config.tags ?? [])];
 		if (tags.includes(val)) {
 			flashDuplicate(val); // already there — show feedback
 		} else {
 			tags.push(val);
 			config.tags = tags;
-			docStore.updateCurrent({ config });
+			docStore.updateCurrent({ metadata: config });
 		}
 		return;
 	}
@@ -93,12 +93,12 @@ function handleTagKeydownWithSuggestions(e: KeyboardEvent) {
 	// Backspace on empty input removes last tag
 	if (e.key === 'Backspace' && tagInputValue === '') {
 		if (docStore.currentDocument) {
-			const config = { ...docStore.currentDocument.config };
+			const config = { ...docStore.currentDocument.metadata };
 			const tags = [...(config.tags ?? [])];
 			if (tags.length > 0) {
 				tags.pop();
 				config.tags = tags;
-				docStore.updateCurrent({ config });
+				docStore.updateCurrent({ metadata: config });
 			}
 		}
 	}
@@ -138,7 +138,7 @@ function handleTagInputChange(e: Event) {
 				<textarea 
 					class="fm-value-input fm-textarea" 
 					rows="1" 
-					value={docStore.currentDocument.config.description || ''} 
+					value={docStore.currentDocument.metadata.description || ''} 
 					oninput={(e) => {
 						handleInput('description', e);
 						autoResizeTextarea(e.target as HTMLTextAreaElement);
@@ -151,7 +151,7 @@ function handleTagInputChange(e: Event) {
 				<input 
 					type="text" 
 					class="fm-value-input" 
-					value={docStore.currentDocument.config.pubDate || ''} 
+					value={docStore.currentDocument.metadata.pubDate || ''} 
 					oninput={(e) => handleInput('pubDate', e)}
 					placeholder="YYYY-MM-DD"
 				/>
@@ -161,7 +161,7 @@ function handleTagInputChange(e: Event) {
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fm-tags-wrapper" onclick={() => document.getElementById('fm-tags-input')?.focus()}>
-					{#each (docStore.currentDocument.config.tags || []) as tag, i (tag)}
+					{#each (docStore.currentDocument.metadata.tags || []) as tag, i (tag)}
 						<span class="fm-tag" class:duplicate={tag === duplicateTag}>
 							{tag}
 							<button type="button" class="fm-tag-remove" aria-label="Remove tag" onclick={(e) => removeTag(i, e)}>
@@ -178,7 +178,7 @@ function handleTagInputChange(e: Event) {
 							onkeydown={handleTagKeydownWithSuggestions}
 							oninput={handleTagInputChange}
 							autocomplete="off"
-							placeholder={(docStore.currentDocument.config.tags ?? []).length === 0 ? 'Add tags…' : ''}
+							placeholder={(docStore.currentDocument.metadata.tags ?? []).length === 0 ? 'Add tags…' : ''}
 						/>
 
 						{#if showSuggestions}

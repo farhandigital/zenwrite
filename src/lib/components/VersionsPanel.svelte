@@ -14,7 +14,7 @@ import {
 } from 'lucide-svelte';
 import { slide } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
-import type { DocumentConfig } from '$lib/types';
+import type { DocumentMetadata } from '$lib/types';
 import { uiState } from '$lib/ui-state.svelte';
 import { versionStore } from '$lib/version-store.svelte';
 import type { DocumentVersion } from '$lib/versions-db';
@@ -82,7 +82,7 @@ async function handleDelete(v: DocumentVersion, e: MouseEvent) {
 async function handleRestore(v: DocumentVersion) {
 	if (!docStore.currentDocument || restoring) return;
 	restoring = true;
-	const plainConfig = $state.snapshot(v.config) as DocumentConfig;
+	const plainConfig = $state.snapshot(v.metadata) as DocumentMetadata;
 	try {
 		// Safety: checkpoint the current state first
 		await versionStore.createCheckpoint(
@@ -93,7 +93,7 @@ async function handleRestore(v: DocumentVersion) {
 		await docStore.updateCurrent({
 			title: v.title,
 			content: v.content,
-			config: structuredClone(plainConfig),
+			metadata: structuredClone(plainConfig),
 		});
 		close();
 	} finally {
@@ -343,10 +343,10 @@ $effect(() => {
 							</div>
 						</div>
 
-						{#if v.config.tags && v.config.tags.length > 0}
+						{#if v.metadata.tags && v.metadata.tags.length > 0}
 							<div class="detail-tags">
 								<Tag size={11} />
-								{#each v.config.tags as tag}
+								{#each v.metadata.tags as tag}
 									<span class="detail-tag">{tag}</span>
 								{/each}
 							</div>

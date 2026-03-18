@@ -19,9 +19,9 @@ export function handleInput(key: string, e: Event) {
 	const target = e.target as HTMLInputElement | HTMLTextAreaElement;
 	const val = target.value;
 	if (docStore.currentDocument) {
-		const config = { ...docStore.currentDocument.config };
+		const config = { ...docStore.currentDocument.metadata };
 		config[key] = val;
-		docStore.updateCurrent({ config });
+		docStore.updateCurrent({ metadata: config });
 	}
 }
 
@@ -29,11 +29,11 @@ export function removeTag(index: number, e: MouseEvent) {
 	e.stopPropagation();
 	e.preventDefault();
 	if (docStore.currentDocument) {
-		const config = { ...docStore.currentDocument.config };
+		const config = { ...docStore.currentDocument.metadata };
 		const tags = [...(config.tags || [])];
 		tags.splice(index, 1);
 		config.tags = tags;
-		docStore.updateCurrent({ config });
+		docStore.updateCurrent({ metadata: config });
 	}
 }
 
@@ -43,23 +43,23 @@ export function handleTagKeydown(e: KeyboardEvent) {
 		e.preventDefault();
 		const val = target.value.trim();
 		if (val && docStore.currentDocument) {
-			const config = { ...docStore.currentDocument.config };
+			const config = { ...docStore.currentDocument.metadata };
 			const tags = [...(config.tags || [])];
 			if (!tags.includes(val)) {
 				tags.push(val);
 				config.tags = tags;
-				docStore.updateCurrent({ config });
+				docStore.updateCurrent({ metadata: config });
 			}
 			target.value = '';
 		}
 	} else if (e.key === 'Backspace' && target.value === '') {
 		if (docStore.currentDocument) {
-			const config = { ...docStore.currentDocument.config };
+			const config = { ...docStore.currentDocument.metadata };
 			const tags = [...(config.tags || [])];
 			if (tags.length > 0) {
 				tags.pop();
 				config.tags = tags;
-				docStore.updateCurrent({ config });
+				docStore.updateCurrent({ metadata: config });
 			}
 		}
 	}
@@ -73,7 +73,7 @@ export function handleTagInput(e: Event) {
 			.map((t) => t.trim())
 			.filter(Boolean);
 		if (docStore.currentDocument) {
-			const config = { ...docStore.currentDocument.config };
+			const config = { ...docStore.currentDocument.metadata };
 			const tags = [...(config.tags || [])];
 			for (const nt of newTags) {
 				if (!tags.includes(nt)) {
@@ -81,7 +81,7 @@ export function handleTagInput(e: Event) {
 				}
 			}
 			config.tags = tags;
-			docStore.updateCurrent({ config });
+			docStore.updateCurrent({ metadata: config });
 		}
 		return true; // caller should clear the input value
 	}
@@ -92,7 +92,7 @@ export function handleTagInput(e: Event) {
 export function getAllTags(): string[] {
 	const set = new Set<string>();
 	for (const doc of docStore.documents) {
-		for (const tag of doc.config.tags ?? []) {
+		for (const tag of doc.metadata.tags ?? []) {
 			if (tag) set.add(tag);
 		}
 	}

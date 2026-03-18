@@ -1,6 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import yaml from 'js-yaml';
-import type { Document, DocumentConfig } from './types';
+import type { Document, DocumentMetadata } from './types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -143,13 +143,13 @@ export async function previewImport(
 function parseMdToDocument(text: string, filename: string): Document {
 	const fmMatch = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 
-	let config: DocumentConfig = {};
+	let config: DocumentMetadata = {};
 	let content = text;
 	let title = filename.replace(/^documents\//, '').replace(/\.md$/, '');
 
 	if (fmMatch) {
 		try {
-			config = (yaml.load(fmMatch[1]) as DocumentConfig) ?? {};
+			config = (yaml.load(fmMatch[1]) as DocumentMetadata) ?? {};
 		} catch {
 			// malformed frontmatter — keep defaults
 		}
@@ -164,7 +164,7 @@ function parseMdToDocument(text: string, filename: string): Document {
 		id: crypto.randomUUID(),
 		title,
 		content,
-		config: {
+		metadata: {
 			pubDate: new Date().toISOString().split('T')[0],
 			tags: [],
 			...config,

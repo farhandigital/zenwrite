@@ -14,7 +14,7 @@
  */
 
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
-import type { DocumentConfig } from './types';
+import type { DocumentMetadata } from './types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ export interface DocumentVersion {
 	/** Snapshot of body content (raw markdown). */
 	content: string;
 	/** Snapshot of frontmatter config. */
-	config: DocumentConfig;
+	metadata: DocumentMetadata;
 	/** Unix timestamp (ms) when this version was created. */
 	createdAt: number;
 	/** Pre-computed word count (title + content) for display. */

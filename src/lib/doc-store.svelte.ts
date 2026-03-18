@@ -130,7 +130,7 @@ export class DocStore {
 			id,
 			title: '',
 			content: '',
-			config: {
+			metadata: {
 				pubDate: new Date().toISOString().split('T')[0],
 				tags: [],
 			},
@@ -279,7 +279,7 @@ export class DocStore {
 	};
 
 	getAstroExport(doc: Document): string {
-		const clonedConfig = structuredClone($state.snapshot(doc.config));
+		const clonedConfig = structuredClone($state.snapshot(doc.metadata));
 
 		if (!clonedConfig.title) {
 			clonedConfig.title = doc.title.trim() || 'Untitled Document';
