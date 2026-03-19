@@ -1,9 +1,7 @@
 <script lang="ts">
 import '../app.css';
 import { onMount } from 'svelte';
-import MigrationModal from '$lib/components/MigrationModal.svelte';
 import { docStore } from '$lib/doc-store.svelte';
-import { migrationStore } from '$lib/migration-store.svelte';
 import { tabPresence } from '$lib/tab-presence.svelte';
 import { uiState } from '$lib/ui-state.svelte';
 import { versionStore } from '$lib/version-store.svelte';
@@ -26,12 +24,7 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 
 onMount(async () => {
 	uiState.initTheme();
-	// Run migration detection first. If legacy docs exist, the modal will
-	// block the UI until backup + migration completes, then call initApp().
-	const needsMigration = await migrationStore.detect();
-	if (!needsMigration) {
-		initApp();
-	}
+	initApp();
 });
 
 function initApp() {
@@ -56,9 +49,7 @@ $effect(() => {
 	onvisibilitychange={docStore.handleVisibilityChange}
 />
 
-{#if migrationStore.isActive}
-	<MigrationModal onDone={initApp} />
-{:else if docStore.documents.length > 0}
+{#if docStore.documents.length > 0}
 	<div class="app-layout">
 		{@render children()}
 	</div>
