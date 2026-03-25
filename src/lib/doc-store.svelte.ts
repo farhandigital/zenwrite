@@ -14,6 +14,7 @@ export class DocStore {
 	currentDocId: string | null = $state(null);
 
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
+	private _dirtyIds = new Set<string>();
 
 	get currentDocument(): Document | null {
 		return this.documents.find((d) => d.id === this.currentDocId) || null;
@@ -171,6 +172,8 @@ export class DocStore {
 		}
 		this.documents[index] = updated;
 
+		this._dirtyIds.add(this.currentDocId!);
+
 		if (this.saveTimer !== null) clearTimeout(this.saveTimer);
 		this.saveTimer = setTimeout(() => {
 			this.saveTimer = null;
@@ -180,6 +183,7 @@ export class DocStore {
 				const snapshot = $state.snapshot(latest);
 				saveDocument(snapshot)
 					.then(() => {
+						this._dirtyIds.delete(docId!);
 						broadcastSave(latest.id);
 						// Notify the version store so it can decide whether to auto-version.
 						versionStore.onDocumentSaved(snapshot);
@@ -213,13 +217,17 @@ export class DocStore {
 
 			if (current) {
 				const snapshot = $state.snapshot(current);
+				const isDirty = this._dirtyIds.has(current.id);
 
 				try {
-					await saveDocument(snapshot);
-					broadcastSave(current.id);
+					if (isDirty) {
+						await saveDocument(snapshot);
+						this._dirtyIds.delete(current.id);
+						broadcastSave(current.id);
+					}
 
-					// Create a version checkpoint when abandoning this document
-					// Pass isDocumentSwitch=true to bypass the char delta gate
+					// Always offer a version checkpoint on switch, but only if there's
+					// something worth checkpointing (version store has its own delta guard)
 					await versionStore.onDocumentSaved(snapshot, true);
 				} catch (err) {
 					console.error(

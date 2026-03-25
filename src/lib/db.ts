@@ -51,7 +51,6 @@ export async function saveDocument(doc: Document): Promise<void> {
 	try {
 		if (!dbPromise) initDB();
 		const db = await dbPromise;
-		doc.metadata.updatedAt = Date.now();
 		await db.put('documents', doc);
 	} catch (err) {
 		console.error('[zenwrite] Failed to save document:', err);
