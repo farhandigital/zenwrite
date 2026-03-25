@@ -32,6 +32,7 @@ let mobileView: 'list' | 'detail' = $state('list');
 
 $effect(() => {
 	if (uiState.versionsOpen && docStore.currentDocId) {
+		versionStore.selectedId = null;
 		versionStore.loadVersions(docStore.currentDocId);
 		mobileView = 'list';
 	}
@@ -41,6 +42,7 @@ $effect(() => {
 $effect(() => {
 	const id = docStore.currentDocId;
 	if (uiState.versionsOpen && id) {
+		versionStore.selectedId = null;
 		versionStore.loadVersions(id);
 		mobileView = 'list';
 	}

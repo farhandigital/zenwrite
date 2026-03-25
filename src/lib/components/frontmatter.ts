@@ -18,11 +18,10 @@ export function autoResizeTextarea(target: HTMLTextAreaElement) {
 export function handleInput(key: string, e: Event) {
 	const target = e.target as HTMLInputElement | HTMLTextAreaElement;
 	const val = target.value;
-	if (docStore.currentDocument) {
-		const config = { ...docStore.currentDocument.metadata };
-		config[key] = val;
-		docStore.updateCurrent({ metadata: config });
-	}
+	const doc = docStore.currentDocument;
+	if (!doc || doc.metadata[key] === val) return; // guard no-ops
+	const config = { ...doc.metadata, [key]: val };
+	docStore.updateCurrent({ metadata: config });
 }
 
 export function removeTag(index: number, e: MouseEvent) {

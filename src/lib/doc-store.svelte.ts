@@ -20,6 +20,17 @@ export class DocStore {
 		return this.documents.find((d) => d.id === this.currentDocId) || null;
 	}
 
+	/**
+	 * Internal mutation for UI-only state changes (e.g., isNew flag) that should
+	 * not touch updatedAt timestamp or mark the document dirty. Use this for
+	 * mutations that don't represent user content changes.
+	 */
+	_patchDocument(updates: Partial<Document>): void {
+		const index = this.documents.findIndex((d) => d.id === this.currentDocId);
+		if (index === -1) return;
+		this.documents[index] = { ...this.documents[index], ...updates };
+	}
+
 	// ─── Initialisation ────────────────────────────────────────────────────────
 
 	init = async () => {

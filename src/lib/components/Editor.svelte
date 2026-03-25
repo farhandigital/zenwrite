@@ -215,7 +215,7 @@ $effect(() => {
 	if (docStore.currentDocument?.isNew && titleInput) {
 		untrack(() => {
 			titleInput!.focus();
-			docStore.updateCurrent({ isNew: false });
+			docStore._patchDocument({ isNew: false });
 		});
 	}
 });

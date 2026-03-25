@@ -20,17 +20,18 @@
  * UUID unique to this tab for its entire lifetime.
  * sessionStorage keeps it stable across soft navigations but discards it when
  * the tab is closed, which is exactly the lifecycle we want.
+ * Lazily initialized on first call to avoid writing to sessionStorage at module import time.
  */
-export const TAB_ID: string = (() => {
+let _tabId: string | null = null;
+
+export function getTabId(): string {
 	if (typeof window === 'undefined') return 'ssr';
+	if (_tabId) return _tabId;
 	const key = 'zenwrite-tab-id';
-	let id = sessionStorage.getItem(key);
-	if (!id) {
-		id = crypto.randomUUID();
-		sessionStorage.setItem(key, id);
-	}
-	return id;
-})();
+	_tabId = sessionStorage.getItem(key) ?? crypto.randomUUID();
+	sessionStorage.setItem(key, _tabId);
+	return _tabId;
+}
 
 // ─── Message union ────────────────────────────────────────────────────────────
 
@@ -59,6 +60,33 @@ function getChannel(): BroadcastChannel | null {
 
 // ─── Data-sync broadcasters ───────────────────────────────────────────────────
 
+export function broadcastTabOpened(docId: string): void {
+	const tabId = getTabId();
+	getChannel()?.postMessage({
+		type: 'tab-opened-doc',
+		docId,
+		tabId,
+	} satisfies SyncMessage);
+}
+
+export function broadcastTabAck(docId: string): void {
+	const tabId = getTabId();
+	getChannel()?.postMessage({
+		type: 'tab-ack-doc',
+		docId,
+		tabId,
+	} satisfies SyncMessage);
+}
+
+export function broadcastTabLeft(docId: string): void {
+	const tabId = getTabId();
+	getChannel()?.postMessage({
+		type: 'tab-left-doc',
+		docId,
+		tabId,
+	} satisfies SyncMessage);
+}
+
 export function broadcastSave(id: string): void {
 	getChannel()?.postMessage({
 		type: 'document-saved',
@@ -76,35 +104,6 @@ export function broadcastDelete(id: string): void {
 export function broadcastImport(): void {
 	getChannel()?.postMessage({
 		type: 'documents-imported',
-	} satisfies SyncMessage);
-}
-
-// ─── Presence broadcasters ────────────────────────────────────────────────────
-
-/** Announce that this tab is now viewing `docId`. */
-export function broadcastTabOpened(docId: string): void {
-	getChannel()?.postMessage({
-		type: 'tab-opened-doc',
-		docId,
-		tabId: TAB_ID,
-	} satisfies SyncMessage);
-}
-
-/** Respond to a tab-opened-doc: "I'm also on this doc." */
-export function broadcastTabAck(docId: string): void {
-	getChannel()?.postMessage({
-		type: 'tab-ack-doc',
-		docId,
-		tabId: TAB_ID,
-	} satisfies SyncMessage);
-}
-
-/** Announce that this tab is leaving `docId`. */
-export function broadcastTabLeft(docId: string): void {
-	getChannel()?.postMessage({
-		type: 'tab-left-doc',
-		docId,
-		tabId: TAB_ID,
 	} satisfies SyncMessage);
 }
 

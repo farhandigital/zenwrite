@@ -27,7 +27,7 @@ import {
 	getVersionsForDoc,
 	initVersionsDB,
 	MAX_AUTO_VERSIONS,
-	saveVersion,
+	saveVersionWithPruning,
 } from './versions-db';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -78,11 +78,11 @@ class VersionStore {
 	/**
 	 * Load (or reload) the version list for a given document.
 	 * Call this when the versions panel is opened or the active doc changes.
+	 * Note: Does not reset selectedId; callers must handle UI state explicitly.
 	 */
 	async loadVersions(docId: string): Promise<void> {
 		this._loadedDocId = docId;
 		this.isLoading = true;
-		this.selectedId = null;
 		try {
 			this.versions = await getVersionsForDoc(docId);
 		} finally {
@@ -202,7 +202,7 @@ class VersionStore {
 			label,
 		};
 
-		await saveVersion(version);
+		await saveVersionWithPruning(version);
 
 		// Update bookkeeping
 		this._meta.set(doc.id, {

@@ -26,8 +26,8 @@ import {
 	broadcastTabAck,
 	broadcastTabLeft,
 	broadcastTabOpened,
+	getTabId,
 	listenSync,
-	TAB_ID,
 } from './sync';
 
 class TabPresence {
@@ -59,7 +59,7 @@ class TabPresence {
 				case 'tab-opened-doc': {
 					// Another tab just opened the same doc we're on.
 					if (msg.docId !== this._currentDocId) return;
-					if (msg.tabId === TAB_ID) return; // shouldn't happen, but guard anyway
+					if (msg.tabId === getTabId()) return; // shouldn't happen, but guard anyway
 					// Add them to our conflict set and acknowledge back.
 					this._addConflict(msg.tabId);
 					broadcastTabAck(msg.docId);
@@ -68,7 +68,7 @@ class TabPresence {
 				case 'tab-ack-doc': {
 					// A tab responded to our tab-opened-doc — they're also on our doc.
 					if (msg.docId !== this._currentDocId) return;
-					if (msg.tabId === TAB_ID) return;
+					if (msg.tabId === getTabId()) return;
 					this._addConflict(msg.tabId);
 					break;
 				}

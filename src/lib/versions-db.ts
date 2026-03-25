@@ -118,15 +118,31 @@ export async function getVersion(
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
 /**
- * Persists a new version, then prunes stale auto versions for that document.
+ * Persists a new version to the database.
  */
 export async function saveVersion(version: DocumentVersion): Promise<void> {
 	try {
 		const store = await db();
 		await store.put('versions', version);
-		await _pruneAutoVersions(store, version.docId);
 	} catch (err) {
 		console.error('[versions] Failed to save version:', err);
+		throw err;
+	}
+}
+
+/**
+ * Persists a new version and prunes stale auto versions for that document.
+ * Use this when you want the automatic retention policy to be applied.
+ */
+export async function saveVersionWithPruning(
+	version: DocumentVersion,
+): Promise<void> {
+	try {
+		const store = await db();
+		await store.put('versions', version);
+		await _pruneAutoVersions(store, version.docId);
+	} catch (err) {
+		console.error('[versions] Failed to save version with pruning:', err);
 		throw err;
 	}
 }
