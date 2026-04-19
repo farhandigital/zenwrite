@@ -287,7 +287,7 @@ export class DocStore {
 		let saved = 0;
 		for (const doc of toWrite) {
 			try {
-				await saveDocument(doc);
+				await saveDocument($state.snapshot(doc));
 				saved++;
 			} catch (err) {
 				console.error('[zenwrite] Failed to import document:', doc.id, err);
