@@ -19,32 +19,31 @@
     Referrer-Policy: no-referrer
 
     Permissions-Policy:
-      accelerometer: []
-      ambient-light-sensor: []
-      autoplay: []
-      battery: []
+      # Hardware and Sensors (Privacy/Security Risk)
       camera: []
-      cross-origin-isolated: []
-      display-capture: []
-      document-domain: []
-      encrypted-media: []
-      execution-while-not-rendered: []
-      execution-while-out-of-viewport: []
-      fullscreen: ["self"]
-      geolocation: []
-      gyroscope: []
-      keyboard-map: []
-      magnetometer: []
       microphone: []
-      midi: []
-      navigation-override: []
-      payment: []
-      picture-in-picture: []
-      publickey-credentials-get: []
-      screen-wake-lock: []
-      sync-xhr: []
+      geolocation: []
       usb: []
-      web-share: []
+      bluetooth: []
+      hid: []
+      serial: []
+      magnetometer: []
+      accelerometer: []
+      gyroscope: []
+
+      # Payment and Credentials
+      payment: []
+      publickey-credentials-get: []
+
+      # Annoyances
+      autoplay: []
+
+      # Features we DO want
+      fullscreen: ["self"]
+
+      # Performance limits
+      sync-xhr: []
+      display-capture: []
       xr-spatial-tracking: []
 
     # null value → Cloudflare Pages deletion directive (emits the key name only)
