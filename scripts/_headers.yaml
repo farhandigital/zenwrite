@@ -30,7 +30,7 @@
       encrypted-media: []
       execution-while-not-rendered: []
       execution-while-out-of-viewport: []
-      fullscreen: []
+      fullscreen: ["self"]
       geolocation: []
       gyroscope: []
       keyboard-map: []
