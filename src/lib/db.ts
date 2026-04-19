@@ -10,8 +10,27 @@ interface ZenWriteDB extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<ZenWriteDB>> | undefined;
 
+async function requestPersistentStorage() {
+	if (
+		typeof navigator !== 'undefined' &&
+		navigator.storage &&
+		navigator.storage.persist
+	) {
+		try {
+			const isPersisted = await navigator.storage.persisted();
+			if (!isPersisted) {
+				const granted = await navigator.storage.persist();
+				console.log(`[zenwrite] Persistent storage granted: ${granted}`);
+			}
+		} catch (err) {
+			console.error('[zenwrite] Failed to request persistent storage:', err);
+		}
+	}
+}
+
 export function initDB() {
 	if (typeof window !== 'undefined' && !dbPromise) {
+		requestPersistentStorage();
 		dbPromise = openDB<ZenWriteDB>('zenwrite-db', 2, {
 			upgrade(db, oldVersion) {
 				if (oldVersion < 1) {
