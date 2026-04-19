@@ -8,7 +8,7 @@ interface ZenWriteDB extends DBSchema {
 	};
 }
 
-let dbPromise: Promise<IDBPDatabase<ZenWriteDB>>;
+let dbPromise: Promise<IDBPDatabase<ZenWriteDB>> | undefined;
 
 export function initDB() {
 	if (typeof window !== 'undefined' && !dbPromise) {
@@ -19,16 +19,57 @@ export function initDB() {
 					db.createObjectStore('documents', { keyPath: 'id' });
 				}
 			},
+			terminated() {
+				dbPromise = undefined;
+			},
 		});
+
+		dbPromise
+			.then((db) => {
+				db.addEventListener('close', () => {
+					dbPromise = undefined;
+				});
+				db.addEventListener('versionchange', () => {
+					db.close();
+					dbPromise = undefined;
+				});
+			})
+			.catch(() => {
+				dbPromise = undefined;
+			});
+	}
+}
+
+async function withRetry<T>(
+	operation: (db: IDBPDatabase<ZenWriteDB>) => Promise<T>,
+): Promise<T> {
+	if (!dbPromise) initDB();
+	try {
+		const db = await (dbPromise as unknown as Promise<
+			IDBPDatabase<ZenWriteDB>
+		>);
+		return await operation(db);
+	} catch (err: unknown) {
+		const error = err as Error;
+		if (
+			error?.name === 'InvalidStateError' ||
+			error?.message?.includes('closing')
+		) {
+			console.warn('[zenwrite] DB connection closed, recovering...', error);
+			dbPromise = undefined;
+			initDB();
+			const db = await (dbPromise as unknown as Promise<
+				IDBPDatabase<ZenWriteDB>
+			>);
+			return await operation(db);
+		}
+		throw err;
 	}
 }
 
 export async function getDocuments(): Promise<Document[]> {
 	try {
-		if (!dbPromise) initDB();
-		const db = await dbPromise;
-		const raw = await db.getAll('documents');
-		return raw;
+		return await withRetry((db) => db.getAll('documents'));
 	} catch (err) {
 		console.error('[zenwrite] Failed to load documents:', err);
 		return [];
@@ -37,10 +78,7 @@ export async function getDocuments(): Promise<Document[]> {
 
 export async function getDocument(id: string): Promise<Document | undefined> {
 	try {
-		if (!dbPromise) initDB();
-		const db = await dbPromise;
-		const raw = await db.get('documents', id);
-		return raw;
+		return await withRetry((db) => db.get('documents', id));
 	} catch (err) {
 		console.error('[zenwrite] Failed to get document:', err);
 		return undefined;
@@ -49,9 +87,7 @@ export async function getDocument(id: string): Promise<Document | undefined> {
 
 export async function saveDocument(doc: Document): Promise<void> {
 	try {
-		if (!dbPromise) initDB();
-		const db = await dbPromise;
-		await db.put('documents', doc);
+		await withRetry((db) => db.put('documents', doc));
 	} catch (err) {
 		console.error('[zenwrite] Failed to save document:', err);
 		throw err;
@@ -60,9 +96,7 @@ export async function saveDocument(doc: Document): Promise<void> {
 
 export async function deleteDocument(id: string): Promise<void> {
 	try {
-		if (!dbPromise) initDB();
-		const db = await dbPromise;
-		await db.delete('documents', id);
+		await withRetry((db) => db.delete('documents', id));
 	} catch (err) {
 		console.error('[zenwrite] Failed to delete document:', err);
 		throw err;
