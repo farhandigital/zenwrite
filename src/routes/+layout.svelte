@@ -12,10 +12,14 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 	const mod1 = event.ctrlKey || event.metaKey;
 	const mod2 = event.shiftKey;
 	const key = event.key.toLowerCase();
+
+	// create new document: Ctrl+Shift+E or Cmd+Shift+E
 	if (mod1 && mod2 && key === 'e') {
 		event.preventDefault();
 		docStore.createNew();
 	}
+
+	// toggle zen mode: Ctrl+Shift+Space or Cmd+Shift+Space
 	if (mod1 && mod2 && key === ' ') {
 		event.preventDefault();
 		uiState.toggleZenMode();
