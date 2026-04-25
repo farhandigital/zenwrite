@@ -20,8 +20,8 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 		docStore.createNew();
 	}
 
-	// toggle zen mode: Ctrl+Shift+Space or Cmd+Shift+Space
-	if (mod1 && mod2 && code === 'space') {
+	// toggle zen mode: Ctrl+Space or Cmd+Shift+Space
+	if (mod1 && code === 'space') {
 		event.preventDefault();
 		uiState.toggleZenMode();
 	}
