@@ -12,11 +12,11 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 	const mod1 = event.ctrlKey || event.metaKey;
 	const mod2 = event.shiftKey;
 	const key = event.key.toLowerCase();
-	if (mod1 && mod2 && key === 'n') {
+	if (mod1 && mod2 && key === 'e') {
 		event.preventDefault();
 		docStore.createNew();
 	}
-	if (mod1 && key === ' ') {
+	if (mod1 && mod2 && key === ' ') {
 		event.preventDefault();
 		uiState.toggleZenMode();
 	}
