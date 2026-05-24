@@ -132,7 +132,7 @@ function handleTagInputChange(e: Event) {
 	</div>
 
 	{#if isFrontmatterOpen}
-		<div class="frontmatter-container" class:zen={uiState.zenMode} transition:slide={{ duration: 200 }}>
+		<div class="frontmatter-container" transition:slide={{ duration: 200 }}>
 			<div class="fm-row">
 				<div class="fm-label">Description</div>
 				<textarea 
@@ -252,16 +252,6 @@ function handleTagInputChange(e: Event) {
 		padding-top: 24px;
 		border-top: 1px dashed var(--border);
 		transition: opacity 0.4s ease;
-	}
-
-	.frontmatter-container.zen {
-		opacity: 0;
-		pointer-events: none;
-		height: 0;
-		margin: 0;
-		padding: 0;
-		overflow: hidden;
-		border: none;
 	}
 
 	.fm-row {
