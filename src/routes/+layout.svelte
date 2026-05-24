@@ -1,6 +1,7 @@
 <script lang="ts">
 import '../app.css';
 import { onMount } from 'svelte';
+import { toggleFrontmatter } from '$lib/components/Frontmatter.svelte';
 import { docStore } from '$lib/doc-store.svelte';
 import { tabPresence } from '$lib/tab-presence.svelte';
 import { uiState } from '$lib/ui-state.svelte';
@@ -24,6 +25,12 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 	if (mod1 && code === 'space') {
 		event.preventDefault();
 		uiState.toggleZenMode();
+	}
+
+	// toggle frontmatter: Ctrl+Shift+F or Cmd+Shift+F
+	if (mod1 && mod2 && key === 'f') {
+		event.preventDefault();
+		toggleFrontmatter();
 	}
 }
 

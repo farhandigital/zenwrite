@@ -1,3 +1,10 @@
+<script module>
+let isFrontmatterOpen = $state(false);
+export function toggleFrontmatter() {
+	isFrontmatterOpen = !isFrontmatterOpen;
+}
+</script>
+
 <script lang="ts">
 import { ChevronDown, ChevronRight, X } from 'lucide-svelte';
 import { slide } from 'svelte/transition';
@@ -11,8 +18,6 @@ import {
 	handleTagInput,
 	removeTag,
 } from './frontmatter';
-
-let isFrontmatterOpen = $state(false);
 
 // ── tag autocomplete state ──
 let tagInputValue = $state('');
@@ -108,10 +113,6 @@ function handleTagInputChange(e: Event) {
 	dismissed = false; // re-show suggestions on new input
 	const cleared = handleTagInput(e);
 	if (cleared) tagInputValue = '';
-}
-
-function toggleFrontmatter() {
-	isFrontmatterOpen = !isFrontmatterOpen;
 }
 </script>
 
