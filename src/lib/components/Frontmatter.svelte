@@ -1,7 +1,10 @@
-<script module>
+<script module lang="ts">
 let isFrontmatterOpen = $state(false);
-export function toggleFrontmatter() {
+let _focusTags = false;
+
+export function toggleFrontmatter(focusTags: boolean) {
 	isFrontmatterOpen = !isFrontmatterOpen;
+	_focusTags = focusTags;
 }
 </script>
 
@@ -10,6 +13,7 @@ import { ChevronDown, ChevronRight, X } from 'lucide-svelte';
 import { slide } from 'svelte/transition';
 import { docStore } from '$lib/doc-store.svelte';
 import { uiState } from '$lib/ui-state.svelte';
+import { tick } from 'svelte'
 import {
 	autoResizeTextarea,
 	formatDate,
@@ -18,6 +22,16 @@ import {
 	handleTagInput,
 	removeTag,
 } from './frontmatter';
+
+// autofocus to tag input when opened from global shortcut
+$effect(() => {
+	if (isFrontmatterOpen && _focusTags) {
+		tick().then(() => {
+			document.getElementById('fm-tags-input')?.focus();
+			_focusTags = false;
+		});
+	}
+});
 
 // ── tag autocomplete state ──
 let tagInputValue = $state('');

@@ -30,7 +30,7 @@ function handleGlobalShortcut(event: KeyboardEvent) {
 	// toggle frontmatter: Ctrl+Shift+F or Cmd+Shift+F
 	if (mod1 && mod2 && key === 'f') {
 		event.preventDefault();
-		toggleFrontmatter();
+		toggleFrontmatter(true);
 	}
 }
 
