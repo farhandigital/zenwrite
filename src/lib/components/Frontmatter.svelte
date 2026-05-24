@@ -109,6 +109,10 @@ function handleTagInputChange(e: Event) {
 	const cleared = handleTagInput(e);
 	if (cleared) tagInputValue = '';
 }
+
+function toggleFrontmatter() {
+	isFrontmatterOpen = !isFrontmatterOpen;
+}
 </script>
 
 {#if docStore.currentDocument}
@@ -119,7 +123,7 @@ function handleTagInputChange(e: Event) {
 		<span class="meta-divider">·</span>
 		<button 
 			class="fm-toggle-btn" 
-			onclick={() => isFrontmatterOpen = !isFrontmatterOpen}
+			onclick={toggleFrontmatter}
 			title="Toggle Properties"
 		>
 			{#if isFrontmatterOpen}
